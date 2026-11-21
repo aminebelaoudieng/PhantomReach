@@ -16,7 +16,7 @@ describe("Grow PDF",()=>{
  },30000);
  it("renders the existing-site variant and handles unmeasured data",async()=>{
   const pdf=await generateGrowPDF({...a,website:{url:"https://example.com",state:"linked",performance:90,seo:85},grid:[],ai:[],competitors:[],reviewSample:{count:0,rated:0,replied:null,stars:[0,0,0,0,0],newestObserved:null}},{map:false});
-  expect([...pdf.toString("latin1").matchAll(/\\/MediaBox\\s*\\[/g)]).toHaveLength(14);
+  expect([...pdf.toString("latin1").matchAll(/\/MediaBox\s*\[/g)]).toHaveLength(14);
  },30000);
  it("does not reuse the incomplete legacy score as a commercial index",()=>{expect(premium(a).score).not.toBe(88);expect(premium({...a,grid:[],ai:[],competitors:[],website:{url:null,state:"unknown",performance:null,seo:null}}).score).toBeNull();});
  it("counts recurring words across individual review texts",()=>expect(reviewWords(["Service propre propre","Service fiable"]).words).toEqual([{word:"service",count:2}]));
