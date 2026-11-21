@@ -7,8 +7,9 @@ type Parsed=Omit<OnPageAudit,"state"|"pages"|"checks">&{links:string[];canonical
 const normalize=(s:string)=>s.replace(/\s+/g," ").trim();
 const short=(s:string,n=160)=>normalize(s).slice(0,n);
 function unique<T>(v:T[]){return [...new Set(v)];}
-export function parsePage(html:Buffer,url:string):Parsed{
- const $=loadBuffer(html);
+export function parsePage(html:Buffer,url:string,contentType=""):Parsed{
+ const charset=contentType.match(/charset\s*=\s*["\']?([\w-]+)/i)?.[1];
+ const $=loadBuffer(html,{encoding:{defaultEncoding:"utf-8",...(charset?{transportLayerEncodingLabel:charset}:{})}});
  const meta=(name:string)=>normalize($("meta").filter((_,el)=>($(el).attr("name")||"").toLowerCase()===name).first().attr("content")||"");
  const title=short($("title").first().text(),180)||null;
  const description=short(meta("description"),240)||null;
@@ -62,13 +63,13 @@ export async function auditOnPage(url:string):Promise<OnPageAudit>{
   if(robotsText&&blocked(initial.pathname,robotsText))return empty();
   const res=await getPublicPage(url,deadline);
   if(res.status!==200||!/(text\/html|application\/xhtml\+xml)/.test(res.type))return empty();
-  const parsed=parsePage(res.body,res.url);
+  const parsed=parsePage(res.body,res.url,res.type);
   const {links,canonical,noindex,og,contentLength,...data}=parsed;
   const checks=pageChecks(parsed);
   const sameOrigin=new URL(res.url).origin===initial.origin;
   const safeCrawl=sameOrigin&&(robots?.status===404||robots?.status===200&&robots.type.includes("text/plain"));
   const candidates=safeCrawl?links.filter(l=>{const u=new URL(l);return u.pathname!==new URL(res.url).pathname&&!u.search&&!/\.[a-z0-9]{2,5}$/i.test(u.pathname)&&/service|contact|soumission|about|apropos|a-propos|devis|quote/i.test(u.pathname)&&!blocked(u.pathname,robotsText);}).slice(0,2):[];
-  const results=await Promise.all(candidates.map(async l=>{try{const p=await getPublicPage(l,deadline);if(p.status!==200||!p.type.includes("text/html")||new URL(p.url).origin!==initial.origin)return null;return {url:p.url,page:parsePage(p.body,p.url)};}catch{return null;}}));
+  const results=await Promise.all(candidates.map(async l=>{try{const p=await getPublicPage(l,deadline);if(p.status!==200||!p.type.includes("text/html")||new URL(p.url).origin!==initial.origin)return null;return {url:p.url,page:parsePage(p.body,p.url,p.type)};}catch{return null;}}));
   const sample=[{url:res.url,page:parsed},...results.filter((x):x is {url:string;page:Parsed}=>x!==null)];
   const pages=unique(sample.map(x=>x.url)).length;
   if(pages>1){const uniquePages=[...new Map(sample.map(x=>[x.url,x.page])).values()];const titles=uniquePages.map(x=>x.title?.toLowerCase()).filter(Boolean), descriptions=uniquePages.map(x=>x.description?.toLowerCase()).filter(Boolean);const duplicates=titles.length-new Set(titles).size+descriptions.length-new Set(descriptions).size;checks.push({label:"Titres / descriptions dupliqués",state:duplicates?"improve":"ok",detail:duplicates?duplicates+" doublon(s) dans "+pages+" pages échantillonnées.":"Aucun doublon détecté sur "+pages+" pages échantillonnées."});}
