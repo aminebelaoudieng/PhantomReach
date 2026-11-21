@@ -22,7 +22,9 @@
     "test:visual": "node testing_framework/visual-smoke.mjs",
     "verify:local": "node scripts/verify-local.mjs",
     "test:watch": "vitest --watch",
-    "test:verbose": "vitest run --reporter=verbose"
+    "test:verbose": "vitest run --reporter=verbose",
+    "verify:grow-report": "vitest run testing_framework/test-suites/grow-commercial.test.ts testing_framework/test-suites/grow-pdf.test.ts",
+    "prebuild": "npm run verify:grow-report"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
