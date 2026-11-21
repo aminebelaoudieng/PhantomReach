@@ -20,6 +20,12 @@ interface UserSettings {
     contact_phone?: string;
   };
   widget_api_key?: string;
+  runtime?: {
+    hosted: boolean;
+    database: string;
+    platform: string;
+    providerSecretsReadOnly: boolean;
+  };
 }
 
 interface DataSource {
@@ -212,12 +218,14 @@ export default function SettingsPage() {
     );
   }
 
+  const hosted = settings?.runtime?.hosted ?? false;
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground mt-1">
-          Manage local workspace settings and report branding.
+          Manage workspace settings, data sources, and report branding.
         </p>
       </div>
 
@@ -240,10 +248,17 @@ export default function SettingsPage() {
             Data Sources
           </CardTitle>
           <CardDescription>
-            Connect the local data sources Phantom Reach uses for audits.
+            {hosted
+              ? "Provider keys are read securely from Vercel environment variables."
+              : "Connect the local data sources Phantom Reach uses for audits."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {hosted && (
+            <div className="rounded-md border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900">
+              Hosted mode is read-only here. Add or replace provider keys in Vercel Environment Variables, then redeploy.
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">
               {dataSources.filter((source) => source.status === "connected").length} connected
@@ -317,6 +332,23 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="flex min-w-0 flex-col gap-2 lg:w-[390px]">
+                    {hosted ? (
+                      <div className="flex items-center justify-between rounded-md border bg-slate-50 px-3 py-2">
+                        <span className="text-sm text-muted-foreground">
+                          {source.configured ? "Configured in Vercel" : "Not configured in Vercel"}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => testDataSource(source.key)}
+                          disabled={sourceBusy[source.key] || !source.configured}
+                        >
+                          <Zap className="mr-2 h-4 w-4" />
+                          Test
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
                     <Input
                       type="password"
                       value={sourceInputs[source.key] || ""}
@@ -355,6 +387,8 @@ export default function SettingsPage() {
                         </Button>
                       )}
                     </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -367,7 +401,7 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Workspace</CardTitle>
           <CardDescription>
-            Local profile and runtime information.
+            Workspace profile and runtime information.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
@@ -377,21 +411,21 @@ export default function SettingsPage() {
           </div>
           <div>
             <label className="text-sm font-medium text-muted-foreground">Name</label>
-            <p className="text-lg font-medium mt-1">{settings?.name || "Local Workspace"}</p>
+            <p className="text-lg font-medium mt-1">{settings?.name || (hosted ? "Hosted Workspace" : "Local Workspace")}</p>
           </div>
           <div>
             <label className="text-sm font-medium text-muted-foreground">Database</label>
             <div className="mt-2">
               <Badge className="gap-1.5">
                 <HardDrive className="h-3 w-3" />
-                SQLite
+                {settings?.runtime?.database || "SQLite"}
               </Badge>
             </div>
           </div>
           <div>
             <label className="text-sm font-medium text-muted-foreground">Run Mode</label>
             <div className="mt-2">
-              <Badge variant="secondary">Local only</Badge>
+              <Badge variant="secondary">{hosted ? `Hosted on ${settings?.runtime?.platform || "Vercel"}` : "Local only"}</Badge>
             </div>
           </div>
         </CardContent>
@@ -404,7 +438,7 @@ export default function SettingsPage() {
             Report Branding
           </CardTitle>
           <CardDescription>
-            Customize widgets and reports generated from this local workspace.
+            Customize widgets and reports generated from this workspace.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -498,7 +532,7 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Widget Key</CardTitle>
           <CardDescription>
-            Local key for the embeddable audit widget.
+            Key for the embeddable audit widget.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

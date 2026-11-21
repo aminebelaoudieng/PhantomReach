@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 interface SidebarProps {
+  hosted: boolean;
   user: {
     name?: string;
     email: string;
@@ -21,7 +22,7 @@ const navigation = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ hosted, user }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -38,7 +39,7 @@ export function Sidebar({ user }: SidebarProps) {
 
       <nav className="flex-1 space-y-1 px-3 py-6">
         <div className="text-xs font-semibold uppercase text-muted-foreground mb-4">
-          Local Workspace
+          {hosted ? "Hosted Workspace" : "Local Workspace"}
         </div>
         {navigation.map((item) => {
           const active = isActive(item.href);
@@ -72,16 +73,16 @@ export function Sidebar({ user }: SidebarProps) {
           <div className="space-y-1">
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>Database</span>
-              <span className="font-semibold text-foreground">SQLite</span>
+              <span className="font-semibold text-foreground">{hosted ? "Supabase" : "SQLite"}</span>
             </div>
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>Runs</span>
-              <span className="font-semibold text-foreground">Local</span>
+              <span className="font-semibold text-foreground">{hosted ? "Vercel" : "Local"}</span>
             </div>
           </div>
           <div className="mt-3 pt-2 border-t border-border/50">
             <span className="inline-flex items-center rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary">
-              Unlimited local use
+              {hosted ? "Private hosted test" : "Unlimited local use"}
             </span>
           </div>
         </div>
@@ -95,7 +96,7 @@ export function Sidebar({ user }: SidebarProps) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">
-                {user.name || "Local Workspace"}
+                {user.name || (hosted ? "Hosted Workspace" : "Local Workspace")}
               </p>
               <p className="text-xs text-muted-foreground truncate">
                 {user.email}

@@ -11,6 +11,7 @@ export default async function DashboardLayout({
   return (
     <div className="flex h-screen">
       <Sidebar
+        hosted={process.env.PHANTOM_DB_BACKEND === "supabase"}
         user={{
           name: user.name,
           email: user.email,

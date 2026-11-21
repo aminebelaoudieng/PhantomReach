@@ -29,6 +29,12 @@ export async function GET() {
       widget_api_key: user.widget_api_key,
       audit_credits_remaining: user.audit_credits_remaining,
       scout_credits_remaining: user.scout_credits_remaining,
+      runtime: {
+        hosted: process.env.PHANTOM_DB_BACKEND === "supabase",
+        database: process.env.PHANTOM_DB_BACKEND === "supabase" ? "Supabase" : "SQLite",
+        platform: process.env.VERCEL === "1" ? "Vercel" : "Local",
+        providerSecretsReadOnly: process.env.PHANTOM_DB_BACKEND === "supabase",
+      },
     });
   } catch (error) {
     console.error("Settings GET error:", error);
