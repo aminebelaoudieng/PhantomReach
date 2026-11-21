@@ -5,10 +5,11 @@ import { fetchGoogleReviews } from "@/lib/agents/tools/reviews";
 import { lookupGoogleMaps } from "@/lib/agents/tools/google-maps";
 import { runPageSpeedAudit } from "@/lib/agents/tools/pagespeed";
 import { assertPublicHttpUrl } from "@/lib/security/public-http-url";
+import { reviewWords } from "./premium";
 import { scoreChecks, summarizeGrid, type GrowAudit, type Point, type Competitor, type Check, type AIAnswer } from "./model";
 
 type Place = { title?:string; place_id?:string; cid?:string; fid?:string; address?:string; latitude?:number; longitude?:number; rating?:number; rating_count?:number; type?:string; types?:string[]; website?:string; phone_number?:string; international_phone_number?:string; opening_hours?:Record<string,string>; description?:string; photos?:unknown[]; position?:number; google_maps_url?:string };
-type Review = {rating?:number; iso_date?:string; response?:{snippet?:string}};
+type Review = {text?:string;snippet?:string;rating?:number; iso_date?:string; response?:{snippet?:string}};
 type Envelope = {results?:unknown[]; meta?:{parse_quality?:string}; text?:string; mentions?:{term?:string;mentioned?:boolean}[]; sources?:{domain?:string;cited?:boolean}[]};
 const normalize=(s:string)=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
 const number=(v:unknown):number|null=>typeof v==="number"&&Number.isFinite(v)?v:null;
@@ -110,7 +111,7 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
       const found=list.find(v=>same(v,p)), rank=number(found?.position);
       const complete=e?.meta?.parse_quality==="ok"&&list.length>0;
       results[index]={...c,rank:rank&&rank>0?rank:null,state:rank&&rank>0?"found":complete&&!found&&list.every(v=>!!idFor(v))?"outside":"unknown",depth:list.length};
-      if(index===Math.floor(coords.length/2))for(const v of list.filter(v=>!same(v,p)&&v.title).slice(0,4))competitors.push({name:safeName(v.title),rating:number(v.rating),reviews:number(v.rating_count),rank:number(v.position),website:v.website?true:null});
+      if(index===Math.floor(coords.length/2))for(const v of list.filter(v=>!same(v,p)&&v.title).slice(0,4))competitors.push({name:safeName(v.title),rating:number(v.rating),reviews:number(v.rating_count),rank:number(v.position),website:v.website?true:null,websiteUrl:v.website||undefined});
     }));
     grid.push(...results);
   }
@@ -120,12 +121,12 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
   if(reviewSource==="none"&&profileFound&&p.place_id){const fallback=await fetchGoogleReviews({placeId:p.place_id,businessName:searchName,city:input.city});if("reviews" in fallback){rawReviews=fallback.reviews.map(r=>({rating:r.rating,iso_date:r.date}));reviewSource="google";}}
   const rated=rawReviews.filter(r=>number(r.rating)!==null&&Number.isInteger(r.rating)&&r.rating!>=1&&r.rating!<=5);
   const dates=rawReviews.map(r=>r.iso_date).filter((d):d is string=>typeof d==="string"&&Number.isFinite(Date.parse(d))&&Date.parse(d)<=Date.now()).sort((a,b)=>Date.parse(b)-Date.parse(a));
-  const reviewSample={count:rawReviews.length,rated:rated.length,replied:reviewSource==="serpkite"&&reviewData?.meta?.parse_quality==="ok"&&rawReviews.length?rawReviews.filter(r=>!!r.response?.snippet).length:null,stars:[5,4,3,2,1].map(n=>rated.filter(r=>r.rating===n).length),newestObserved:dates.length?formatDate(dates[0]):null,source:reviewSource};
+  const reviewSample={count:rawReviews.length,rated:rated.length,replied:reviewSource==="serpkite"&&reviewData?.meta?.parse_quality==="ok"&&rawReviews.length?rawReviews.filter(r=>!!r.response?.snippet).length:null,stars:[5,4,3,2,1].map(n=>rated.filter(r=>r.rating===n).length),newestObserved:dates.length?formatDate(dates[0]):null,source:reviewSource,...reviewWords(rawReviews.map(r=>r.text||r.snippet||""))};
   const engines=[["chatgpt","ChatGPT",5],["gemini","Gemini",5],["ai_mode","Google AI Mode",3]] as const;
   const ai:AIAnswer[]=await Promise.all(engines.map(async ([endpoint,engine,cost]):Promise<AIAnswer>=>{
     const e=profileFound&&keyword&&location&&process.env.GROW_AI_VISIBILITY!=="off"?await call(endpoint,{prompt:"Quels prestataires de "+keyword+" recommandez-vous à "+location+" ? Donnez des entreprises locales réelles.",track:[p.title!,...competitors.map(c=>c.name)]},cost):null;
     const mention=e?.mentions?.find(m=>normalize(m.term||"")===normalize(p.title||""));
-    return {engine,state:e?.text&&typeof mention?.mentioned==="boolean"?(mention.mentioned?"mentioned":"absent"):"unknown",sources:[...new Set((e?.sources??[]).filter(s=>s.cited&&s.domain).map(s=>s.domain!))].slice(0,3),competitors:(e?.mentions??[]).filter(m=>m.mentioned&&competitors.some(c=>normalize(c.name)===normalize(m.term||""))).map(m=>safeName(m.term)).slice(0,3)};
+    return {engine,excerpt:typeof e?.text==="string"?e.text.replace(/\s+/g," ").slice(0,550):undefined,state:e?.text&&typeof mention?.mentioned==="boolean"?(mention.mentioned?"mentioned":"absent"):"unknown",sources:[...new Set((e?.sources??[]).filter(s=>s.cited&&s.domain).map(s=>s.domain!))].slice(0,3),competitors:(e?.mentions??[]).filter(m=>m.mentioned&&competitors.some(c=>normalize(c.name)===normalize(m.term||""))).map(m=>safeName(m.term)).slice(0,3)};
   }));
   const websiteUrl=input.url||p.website||null;
   let performance:number|null=null,seo:number|null=null;

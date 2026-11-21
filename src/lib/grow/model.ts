@@ -1,13 +1,13 @@
 export type CheckState = "ok" | "improve" | "unknown";
 export interface Check { title: string; value: string; state: CheckState; action?: string }
-export interface Competitor { name: string; rating: number | null; reviews: number | null; rank: number | null; website: boolean | null }
+export interface Competitor { name: string; rating: number | null; reviews: number | null; rank: number | null; website: boolean | null; websiteUrl?: string }
 export interface Point { lat: number; lng: number; rank: number | null; state: "found" | "outside" | "unknown"; depth: number }
-export interface AIAnswer { engine: string; state: "mentioned" | "absent" | "unknown"; sources: string[]; competitors: string[] }
+export interface AIAnswer { engine: string; state: "mentioned" | "absent" | "unknown"; sources: string[]; competitors: string[]; excerpt?: string }
 export interface GrowAudit {
   version: 2; name: string; location: string; date: string; keyword: string; source: string;
   profileFound: boolean; rating: number | null; reviewCount: number | null;
   checks: Check[]; score: number | null; coverage: number;
-  reviewSample: { count: number; rated: number; replied: number | null; stars: number[]; newestObserved: string | null; source?: 'serpkite' | 'google' | 'none' };
+  reviewSample: { count: number; rated: number; replied: number | null; stars: number[]; newestObserved: string | null; source?: 'serpkite' | 'google' | 'none'; words?: {word:string;count:number}[]; textCount?: number };
   competitors: Competitor[]; grid: Point[]; spacingKm: number; ai: AIAnswer[];
   website: { url: string | null; performance: number | null; seo: number | null; state: "linked" | "not_linked" | "unknown" };
   commercial?: CommercialInputs;
