@@ -468,6 +468,7 @@ export interface EvidenceReport {
 }
 
 export interface AuditResult {
+  grow?: import('@/lib/grow/model').GrowAudit;
   executive_summary: ExecutiveSummaryData | string; // Support legacy string summaries
   gbp_health?: GBPHealthResult;
   review_sentiment?: ReviewSentimentResult;

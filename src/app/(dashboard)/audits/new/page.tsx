@@ -195,15 +195,15 @@ export default function NewAuditPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">New Business Audit</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Nouvel audit de visibilité</h1>
         <p className="text-muted-foreground mt-1">
-          Start typing a business name — we&apos;ll find it on Google Maps and auto-fill the details.
+          Recherchez une entreprise et indiquez le service à mesurer sur Google Maps.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Business Details</CardTitle>
+          <CardTitle className="text-xl">Informations de l’entreprise</CardTitle>
           <CardDescription>
             Search for a business or enter details manually. The more info you provide, the better the audit.
           </CardDescription>
@@ -284,13 +284,13 @@ export default function NewAuditPage() {
             {/* Custom Direction */}
             <div className="space-y-2">
               <label className="text-sm font-medium leading-none" htmlFor="customDirection">
-                Custom Research Direction <span className="text-muted-foreground text-xs">(Pro/Agency)</span>
+                Mot-clé local à mesurer <span className="text-muted-foreground text-xs">(facultatif)</span>
               </label>
               <div className="relative">
                 <MessageSquare className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <textarea
                   id="customDirection"
-                  placeholder="e.g., Focus on their hiring patterns and growth signals..."
+                  placeholder="Ex. entretien ménager résidentiel"
                   className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent pl-10 pr-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   value={formData.customDirection}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
@@ -321,11 +321,11 @@ export default function NewAuditPage() {
             {/* Submit */}
             <Button type="submit" className="w-full" size="lg" disabled={!formData.businessName.trim()}>
               <Search className="mr-2 h-4 w-4" />
-              Run Business Audit
+              Générer mon audit
             </Button>
 
             <p className="text-xs text-center text-muted-foreground">
-              Uses 1 audit credit. Powered by Google Places and AI analysis.
+              Rapport commercial en français. Google Places, SerpKite et PageSpeed selon les données disponibles.
             </p>
           </form>
         </CardContent>

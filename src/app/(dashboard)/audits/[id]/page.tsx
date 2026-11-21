@@ -1,4 +1,5 @@
 "use client";
+import { GrowReport } from "@/components/reports/grow-report";
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -773,6 +774,8 @@ export default function AuditReportPage() {
   const auditInput = report.input as AuditInput;
   const result = report.result as AuditResult | undefined;
   const scores = report.scores;
+
+  if (result?.grow) return <GrowReport audit={result.grow} id={report.id}/>;
 
   // Revenue scenario toggle — Conservative / Moderate / Aggressive
   if (!result) {

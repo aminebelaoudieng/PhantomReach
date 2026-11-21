@@ -2,7 +2,7 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireRouteUser } from "@/lib/auth/route";
-import { runAuditPipeline } from "@/lib/agents/orchestrator";
+import { runGrowAudit } from "@/lib/grow/collect";
 import { assertPublicHttpUrl } from "@/lib/security/public-http-url";
 
 export const dynamic = "force-dynamic";
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     after(async () => {
       try {
-        const { result, scores } = await runAuditPipeline({
+        const { result, scores } = await runGrowAudit({
           businessName: input.businessName,
           city: input.city,
           state: input.state,

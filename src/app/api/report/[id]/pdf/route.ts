@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireOwnedReport, requireRouteUser } from "@/lib/auth/route";
+import { generateGrowPDF } from "@/lib/grow/pdf";
+import type { AuditResult } from "@/lib/db/types";
 import { generateReportPDF } from "@/lib/pdf/generate-pdf";
 import { sanitizeAuditResultContent } from "@/lib/reports/content-contract";
 
@@ -30,7 +32,8 @@ export async function GET(
     const exportReport = report.type === "audit"
       ? { ...report, result: sanitizeAuditResultContent(report.result as any) }
       : report;
-    const pdfBuffer = await generateReportPDF(exportReport);
+    const grow = report.type === 'audit' ? (report.result as AuditResult).grow : undefined;
+    const pdfBuffer = grow ? await generateGrowPDF(grow) : await generateReportPDF(exportReport);
 
     const businessName = (report.input as any).businessName || "Business";
     const filename = `${businessName.replace(/[^a-zA-Z0-9]/g, "_")}_Audit_Report.pdf`;
