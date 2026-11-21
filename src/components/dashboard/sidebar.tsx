@@ -107,7 +107,7 @@ export function Sidebar({ hosted, user, linked }: SidebarProps) {
             </div>
           </div>
         </div>
-        {hosted&&(linked?<form action={logout}><button className="mt-3 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent" type="submit"><LogOut className="h-4 w-4"/>Déconnexion</button></form>:<a href="/auth/setup" className="mt-3 block rounded-lg bg-[#114537] px-3 py-2 text-sm font-semibold text-white">Configurer Supabase Auth</a>)}
+        {hosted&&linked&&<form action={logout}><button className="mt-3 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent" type="submit"><LogOut className="h-4 w-4"/>Déconnexion</button></form>}
       </div>
     </div>
   );

@@ -17,11 +17,12 @@ describe("hosted access proxy", () => {
     expect(response.status).toBe(503);
   });
 
-  it("requires and accepts configured Basic credentials", async () => {
+  it("never challenges for Basic credentials in local mode", async () => {
     vi.stubEnv("APP_ACCESS_USERNAME", "tester");
     vi.stubEnv("APP_ACCESS_PASSWORD", "secret-password");
     const unauthorized = await proxy(new NextRequest("https://example.vercel.app/audits"));
-    expect(unauthorized.status).toBe(401);
+    expect(unauthorized.status).toBe(200);
+    expect(unauthorized.headers.get("www-authenticate")).toBeNull();
 
     const authorization = `Basic ${Buffer.from("tester:secret-password").toString("base64")}`;
     const authorized = await proxy(new NextRequest("https://example.vercel.app/audits", {

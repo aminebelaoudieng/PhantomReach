@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import {useState} from "react";
 import {useFormStatus} from "react-dom";
 import {ArrowRight, ArrowUpRight, BarChart3, CheckCircle2, Eye, EyeOff, FileText, Globe2, LockKeyhole, Mail, MapPin, ShieldCheck, Sparkles, Star, Loader2} from "lucide-react";
-import {login,setup} from "@/app/auth/actions";
+import {login} from "@/app/auth/actions";
 import styles from "./login.module.css";
 
 function Brand({light=false}:{light?:boolean}){
@@ -44,12 +43,12 @@ function ProductPreview(){
  </div>;
 }
 
-function Submit({initial}:{initial:boolean}){
+function Submit(){
  const {pending}=useFormStatus();
- return <button type="submit" disabled={pending} className={styles.submit}>{pending?<><Loader2 className={styles.spin} size={19}/> Connexion en cours…</>:<>{initial?"Rattacher mon compte":"Se connecter"}<ArrowRight size={19}/></>}</button>;
+ return <button type="submit" disabled={pending} className={styles.submit}>{pending?<><Loader2 className={styles.spin} size={19}/> Connexion en cours…</>:<>Se connecter<ArrowRight size={19}/></>}</button>;
 }
 
-export function LoginForm({initial=false,error=false,showSetup=false}:{initial?:boolean;error?:boolean;showSetup?:boolean}){
+export function LoginForm({error=false,needsSetup=false,unavailable=false}:{error?:boolean;needsSetup?:boolean;unavailable?:boolean}){
  const [visible,setVisible]=useState(false);
  return <main lang="fr" className={styles.shell}>
   <aside className={styles.story}>
@@ -68,17 +67,17 @@ export function LoginForm({initial=false,error=false,showSetup=false}:{initial?:
    <header className={styles.accessHeader}><Brand/><span className={styles.secure}><LockKeyhole size={13}/> Accès privé</span></header>
    <div className={styles.accessBody}>
     <div className={styles.loginIcon}><LockKeyhole size={23} strokeWidth={1.7}/></div>
-    <p className={styles.kicker}>{initial?"PREMIÈRE CONFIGURATION":"VOTRE ESPACE DE TRAVAIL"}</p>
-    <h1>{initial?"Rattacher votre compte.":"Bon retour."}</h1>
-    <p className={styles.intro}>{initial?"Connectez votre utilisateur Supabase pour retrouver vos rapports existants et sécuriser définitivement votre espace.":"Connectez-vous à votre espace pour accéder à vos audits, vos rapports et vos outils de croissance."}</p>
+    <p className={styles.kicker}>VOTRE ESPACE DE TRAVAIL</p>
+    <h1>Bon retour.</h1>
+    <p className={styles.intro}>Connectez-vous à votre espace pour accéder à vos audits, vos rapports et vos outils de croissance.</p>
     {error&&<p role="alert" className={styles.error}>Connexion impossible. Vérifiez vos identifiants et que votre compte est confirmé et autorisé.</p>}
-    <form className={styles.form} action={initial?setup:login}>
+    <form className={styles.form} action={login}>
      <div className={styles.field}><label htmlFor="login-email">Adresse e-mail</label><div className={styles.inputWrap}><Mail size={18} aria-hidden="true"/><input id="login-email" type="email" name="email" autoComplete="username" required maxLength={254} placeholder="vous@entreprise.ca"/></div></div>
      <div className={styles.field}><label htmlFor="login-password">Mot de passe</label><div className={styles.inputWrap}><LockKeyhole size={18} aria-hidden="true"/><input id="login-password" type={visible?"text":"password"} name="password" autoComplete="current-password" required maxLength={256} placeholder="Votre mot de passe"/><button type="button" className={styles.passwordToggle} onClick={()=>setVisible(v=>!v)} aria-label={visible?"Masquer le mot de passe":"Afficher le mot de passe"} aria-pressed={visible}>{visible?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></div>
-     <Submit initial={initial}/>
+     <Submit/>
     </form>
-    {showSetup&&<div className={styles.setup}>Première connexion ? <Link href="/auth/setup">Configurer mon compte <ArrowUpRight size={13}/></Link></div>}
-    {initial&&<p className={styles.setup}>Créez d’abord votre utilisateur dans Supabase → Authentication → Users.</p>}
+    {needsSetup&&<p className={styles.setup} role="status">Première configuration : le compte doit être créé et rattaché à cet espace par l’administrateur Supabase. Aucune inscription publique.</p>}
+    {unavailable&&<p className={styles.error} role="alert">Le service de connexion est temporairement indisponible.</p>}
     <div className={styles.trust}><ShieldCheck size={20} strokeWidth={1.7}/><div><strong>Un espace réservé à votre équipe.</strong><p>Authentification sécurisée par Supabase.</p></div></div>
    </div>
    <footer className={styles.accessFooter}><span>© {new Date().getFullYear()} Grow System</span><span>PhantomReach · Espace privé</span></footer>

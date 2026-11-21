@@ -1,19 +1,17 @@
 import {NextRequest,NextResponse} from "next/server";
 import {createServerClient} from "@supabase/ssr";
-import {authConfig,basicConfigured,hostedAuth,readBinding,verifiedOwner,verifyBasic} from "@/lib/auth/hosted";
+import {authConfig,hostedAuth,readBinding,verifiedOwner} from "@/lib/auth/hosted";
 function privateResponse(response:NextResponse){
  response.headers.set("Cache-Control","private, no-store, max-age=0");
  response.headers.set("Pragma","no-cache");
  return response;
 }
-function challenge(){return privateResponse(new NextResponse("Authentication required",{status:401,headers:{"WWW-Authenticate":'Basic realm="Phantom Reach initial setup", charset="UTF-8"'}}));}
 function unavailable(){return privateResponse(new NextResponse("Access configuration unavailable.",{status:503}));}
 export async function proxy(request:NextRequest){
  const path=request.nextUrl.pathname;
  if(path==="/api/health")return NextResponse.next();
  if(!hostedAuth()){
-  if(!basicConfigured())return process.env.VERCEL==="1"?unavailable():NextResponse.next();
-  return verifyBasic(request.headers.get("authorization"))?privateResponse(NextResponse.next()):challenge();
+  return process.env.VERCEL==="1"?unavailable():NextResponse.next();
  }
  let response=privateResponse(NextResponse.next({request}));
  function finish(next:NextResponse){
@@ -22,18 +20,12 @@ export async function proxy(request:NextRequest){
   return privateResponse(next);
  }
  try{
-  const binding=await readBinding();
-  // One-time setup is password-protected and becomes unavailable once bound.
-  if(path==="/auth/setup"){
-   if(binding)return finish(NextResponse.redirect(new URL("/login",request.url)));
-   if(!basicConfigured())return unavailable();
-   return verifyBasic(request.headers.get("authorization"))?response:challenge();
-  }
   if(path==="/login"||path==="/auth/callback")return response;
+  const binding=await readBinding();
+  if(path==="/auth/setup")return finish(NextResponse.redirect(new URL("/login",request.url)));
   if(!binding){
-   // Preserve access during migration, but never accept legacy credentials once linked.
-   if(!basicConfigured())return unavailable();
-   return verifyBasic(request.headers.get("authorization"))?response:finish(NextResponse.redirect(new URL("/login",request.url)));
+   if(path.startsWith("/api/"))return finish(NextResponse.json({error:"Authentification requise."},{status:401}));
+   return finish(NextResponse.redirect(new URL("/login",request.url)));
   }
   const {url,key}=authConfig();
   const supabase=createServerClient(url,key,{cookieOptions:{name:"phantom-auth",httpOnly:true,secure:process.env.NODE_ENV==="production",sameSite:"lax",path:"/"},cookies:{

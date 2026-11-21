@@ -5,6 +5,7 @@ export const dynamic="force-dynamic";
 export const metadata={title:"Connexion | Grow System",description:"Espace privé Grow System"};
 export default async function LoginPage({searchParams}:{searchParams:Promise<{error?:string}>}){
  if(!hostedAuth())redirect("/audits");
- const binding=await readBinding();
- return <LoginForm error={!!(await searchParams).error} showSetup={!binding}/>;
+ let configured=false,unavailable=false;
+ try{configured=!!(await readBinding());}catch{unavailable=true;}
+ return <LoginForm error={!!(await searchParams).error} needsSetup={!configured&&!unavailable} unavailable={unavailable}/>;
 }

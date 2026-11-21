@@ -1,5 +1,4 @@
 import {createClient,type User as AuthUser} from "@supabase/supabase-js";
-import {timingSafeEqual} from "node:crypto";
 export const WORKSPACE_ID="00000000-0000-4000-8000-000000000001";
 export const hostedAuth=()=>process.env.PHANTOM_DB_BACKEND==="supabase";
 export function authConfig(){
@@ -20,19 +19,4 @@ export async function readBinding():Promise<string|null>{
 }
 export function verifiedOwner(user:AuthUser|null|undefined,binding:string|null){
  return !!(binding&&user&&user.id===binding&&!user.is_anonymous&&user.email_confirmed_at&&user.email);
-}
-export function basicConfigured(){return !!(process.env.APP_ACCESS_USERNAME?.trim()&&process.env.APP_ACCESS_PASSWORD?.trim());}
-export function verifyBasic(header:string|null){
- if(!basicConfigured()||!header?.startsWith("Basic "))return false;
- try{
-  const decoded=Buffer.from(header.slice(6),"base64").toString("utf8");
-  const expected=process.env.APP_ACCESS_USERNAME!.trim()+":"+process.env.APP_ACCESS_PASSWORD!.trim();
-  const a=Buffer.from(decoded),b=Buffer.from(expected);
-  return a.length===b.length&&timingSafeEqual(a,b);
- }catch{return false;}
-}
-export async function bindWorkspace(user:AuthUser){
- if(!user.email||!user.email_confirmed_at||user.is_anonymous)throw Error("Compte vérifié requis");
- const {data,error}=await databaseClient().from("users").update({auth_user_id:user.id,email:user.email,updated_at:new Date().toISOString()}).eq("id",WORKSPACE_ID).is("auth_user_id",null).select("id").maybeSingle();
- if(error||!data)throw Error("Impossible de rattacher cet espace");
 }
