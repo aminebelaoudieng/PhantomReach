@@ -2,7 +2,7 @@ import {loadBuffer} from "cheerio";
 import type {CheckState} from "./model";
 import {getPublicPage} from "./public-page";
 export type OnPageCheck={label:string;state:CheckState;detail:string};
-export type OnPageAudit={state:"measured"|"unavailable";pages:number;title:string|null;description:string|null;h1:string[];images:number;missingAlt:number;internalLinks:number;externalLinks:number;formCount:number;contactLinkCount:number;ctaCount:number;schemaTypes:string[];checks:OnPageCheck[]};
+export type OnPageAudit={state:"measured"|"unavailable";pages:number;title:string|null;description:string|null;h1:string[];h2Count?:number;h3Count?:number;images:number;missingAlt:number;internalLinks:number;externalLinks:number;formCount:number;contactLinkCount:number;ctaCount:number;schemaTypes:string[];checks:OnPageCheck[]};
 type Parsed=Omit<OnPageAudit,"state"|"pages"|"checks">&{links:string[];canonical:string|null;noindex:boolean;og:boolean;contentLength:number};
 const normalize=(s:string)=>s.replace(/\s+/g," ").trim();
 const short=(s:string,n=160)=>normalize(s).slice(0,n);
@@ -32,7 +32,7 @@ export function parsePage(html:Buffer,url:string,contentType=""):Parsed{
  const noindex=/\bnoindex\b/i.test(meta("robots")+" "+meta("googlebot"));
  const formCount=$("form").length;
  $("script,style,template,noscript,svg,head").remove();
- return {title,description,h1:headings,images:images.length,missingAlt,internalLinks:unique(internal).length,externalLinks:unique(external).length,formCount,contactLinkCount:contacts,ctaCount:ctas,schemaTypes:unique(types).slice(0,12),links:unique(internal),canonical:canonical?short(canonical,180):null,noindex,og,contentLength:normalize($("body").text()).length};
+ return {title,description,h1:headings,h2Count:$("h2").length,h3Count:$("h3").length,images:images.length,missingAlt,internalLinks:unique(internal).length,externalLinks:unique(external).length,formCount,contactLinkCount:contacts,ctaCount:ctas,schemaTypes:unique(types).slice(0,12),links:unique(internal),canonical:canonical?short(canonical,180):null,noindex,og,contentLength:normalize($("body").text()).length};
 }
 export function pageChecks(p:Parsed):OnPageCheck[]{
  const c=(label:string,state:CheckState,detail:string):OnPageCheck=>({label,state,detail});
@@ -41,7 +41,7 @@ export function pageChecks(p:Parsed):OnPageCheck[]{
  return [
   c("Titre SEO",p.title?"ok":"improve",p.title||"Aucun titre HTML détecté."),
   c("Méta-description",p.description?"ok":"improve",p.description||"Aucune méta-description détectée."),
-  c("Titre principal H1",p.h1.length?"ok":evidence?"improve":"unknown",p.h1.length?p.h1[0]:"Aucun H1 visible dans le HTML initial."),
+  c("Structure des titres",p.h1.length?"ok":evidence?"improve":"unknown",p.h1.length?p.h1.length+" H1 · "+(p.h2Count??0)+" H2 · "+(p.h3Count??0)+" H3. "+p.h1[0]:"Aucun H1 visible dans le HTML initial."),
   c("Textes alternatifs",p.images?p.missingAlt?"improve":"ok":"unknown",p.images?p.missingAlt+" / "+p.images+" images sans attribut alt.":"Aucune image HTML détectée."),
   c("Indexation",p.noindex?"improve":"ok",p.noindex?"Directive noindex détectée.":"Aucun noindex dans les balises meta (indexation réelle non vérifiée)."),
   c("Moyens de contact",conversion?"ok":"unknown",conversion?p.formCount+" formulaire(s), "+p.contactLinkCount+" lien(s) tel/mail, "+p.ctaCount+" appel(s) à l'action détecté(s).":"Non détectés dans le HTML initial. Vérifier visuellement."),

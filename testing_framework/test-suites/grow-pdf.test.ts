@@ -1,6 +1,8 @@
 import { describe,it,expect } from "vitest";
 import {mapProjection} from "../../src/lib/grow/map";
 import {premium,reviewWords} from "../../src/lib/grow/premium";
+import {parsePage,pageChecks} from "../../src/lib/grow/onpage";
+import {websiteDetails} from "../../src/lib/grow/website-details";
 import {generateGrowPDF} from "../../src/lib/grow/pdf";
 import type {GrowAudit,Point} from "../../src/lib/grow/model";
 const grid:Point[]=Array.from({length:25},(_,i)=>({lat:45.5+(2-Math.floor(i/5))*.0063,lng:-73.6+(i%5-2)*.009,rank:i===12?2:null,state:i===12?"found":"outside",depth:10}));
@@ -21,6 +23,15 @@ describe("Grow PDF",()=>{
  it("renders the existing-site variant and handles unmeasured data",async()=>{
   const pdf=await generateGrowPDF({...a,website:{url:"https://example.com",state:"linked",performance:90,seo:85},grid:[],ai:[],competitors:[],reviewSample:{count:0,rated:0,replied:null,stars:[0,0,0,0,0],newestObserved:null}},{map:false});
   expect([...pdf.toString("latin1").matchAll(/\/MediaBox\s*\[/g)]).toHaveLength(14);
+ },30000);
+ it("fits the enriched website evidence on page ten",async()=>{
+  const parsed=parsePage(Buffer.from('<html><head><title>Services de nettoyage professionnel à Montréal</title><meta name="description" content="Services de nettoyage, résidentiel et commercial, demandes de soumission en ligne."></head><body><h1>Services de nettoyage professionnel</h1><h2>Services</h2><img src="before.jpg"><a href="tel:123">Appelez</a><form></form><button>Demander une soumission</button></body></html>'),"https://example.com");
+  const {links,canonical,noindex,og,contentLength,...data}=parsed;
+  let layout:unknown;
+  const pdf=await generateGrowPDF({...a,website:{url:"https://example.com",state:"linked",performance:45,seo:60,details:websiteDetails({audits:{"largest-contentful-paint":{numericValue:4500},"first-contentful-paint":{numericValue:2000},"cumulative-layout-shift":{numericValue:.21}}}),onpage:{...data,state:"measured",pages:3,checks:pageChecks(parsed)}}},{map:false,onRender:x=>{layout=x;}});
+  expect([...pdf.toString("latin1").matchAll(/\/MediaBox\s*\[/g)]).toHaveLength(14);
+  const root=(layout as {_INTERNAL__LAYOUT__DATA_?:{children:{children:{box?:{top:number;height:number};style?:{position?:string}}[]}[]}}|undefined)?._INTERNAL__LAYOUT__DATA_;
+  if(root?.children[9])expect(root.children[9].children.filter(n=>n.box&&n.style?.position!=="absolute"&&n.box.top+n.box.height>807)).toEqual([]);
  },30000);
  it("does not reuse the incomplete legacy score as a commercial index",()=>{expect(premium(a).score).not.toBe(88);expect(premium({...a,grid:[],ai:[],competitors:[],website:{url:null,state:"unknown",performance:null,seo:null}}).score).toBeNull();});
  it("counts recurring words across individual review texts",()=>expect(reviewWords(["Service propre propre","Service fiable"]).words).toEqual([{word:"service",count:2}]));
