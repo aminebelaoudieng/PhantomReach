@@ -1,3 +1,4 @@
+import { requireRouteUser } from "@/lib/auth/route";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getSecret,
@@ -180,6 +181,7 @@ async function runProviderTest(key: LocalSecretKey, value: string): Promise<stri
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
+  const auth=await requireRouteUser();if(auth.response)return auth.response;
   const { key } = await context.params;
   const definition = getProviderDefinition(key as LocalSecretKey);
   if (!definition) {

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import type { Report, User } from "@/lib/db/types";
-import { getLocalWorkspaceUser } from "./local-workspace";
+import { getCurrentUser } from "./server";
 
 export async function requireRouteUser(): Promise<
   | { user: User; response?: never }
   | { user?: never; response: NextResponse }
 > {
-  const user = await getLocalWorkspaceUser();
+  const user = await getCurrentUser();
+  if(!user)return {response:NextResponse.json({error:"Authentification requise."},{status:401})};
   return { user };
 }
 

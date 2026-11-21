@@ -1,5 +1,6 @@
 "use client";
 
+import { logout } from "@/app/auth/actions";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -7,10 +8,12 @@ import {
   HardDrive,
   Settings,
   Zap,
+  LogOut,
 } from "lucide-react";
 
 interface SidebarProps {
   hosted: boolean;
+  linked?: boolean;
   user: {
     name?: string;
     email: string;
@@ -22,7 +25,7 @@ const navigation = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function Sidebar({ hosted, user }: SidebarProps) {
+export function Sidebar({ hosted, user, linked }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -104,6 +107,7 @@ export function Sidebar({ hosted, user }: SidebarProps) {
             </div>
           </div>
         </div>
+        {hosted&&(linked?<form action={logout}><button className="mt-3 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent" type="submit"><LogOut className="h-4 w-4"/>Déconnexion</button></form>:<a href="/auth/setup" className="mt-3 block rounded-lg bg-[#114537] px-3 py-2 text-sm font-semibold text-white">Configurer Supabase Auth</a>)}
       </div>
     </div>
   );

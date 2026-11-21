@@ -1,5 +1,6 @@
 import { GrowReport } from "@/components/reports/grow-report";
 import { Metadata } from "next";
+import { getCurrentUser } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -41,8 +42,10 @@ function formatDate(iso: string): string {
 
 async function fetchReport(reportId: string): Promise<Report | null> {
   try {
+    const user=await getCurrentUser();
+    if(!user)return null;
     const report = await db.getReportPublic(reportId);
-    if (!report) return null;
+    if (!report||report.user_id!==user.id) return null;
     const repaired = repairMojibakeValue(report) as Report;
     return repaired.result && repaired.type === "audit"
       ? { ...repaired, result: sanitizeAuditResultContent(repaired.result as AuditResult) }

@@ -1,3 +1,4 @@
+import { requireRouteUser } from "@/lib/auth/route";
 import { NextRequest, NextResponse } from "next/server";
 import {
   deleteSecret,
@@ -17,6 +18,7 @@ async function resolveDefinition(context: RouteContext) {
 }
 
 export async function PUT(request: NextRequest, context: RouteContext) {
+  const auth=await requireRouteUser();if(auth.response)return auth.response;
   if (process.env.PHANTOM_DB_BACKEND === "supabase") {
     return NextResponse.json(
       { error: "Hosted secrets are managed with Vercel environment variables." },
@@ -39,6 +41,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
+  const auth=await requireRouteUser();if(auth.response)return auth.response;
   if (process.env.PHANTOM_DB_BACKEND === "supabase") {
     return NextResponse.json(
       { error: "Hosted secrets are managed with Vercel environment variables." },

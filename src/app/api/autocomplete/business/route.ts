@@ -1,3 +1,4 @@
+import { requireRouteUser } from "@/lib/auth/route";
 import { NextRequest, NextResponse } from "next/server";
 import { cleanLocation } from "@/lib/grow/location";
 import { getProviderSecret } from "@/lib/config/provider-config";
@@ -27,6 +28,7 @@ interface BusinessSuggestion {
 }
 
 export async function GET(request: NextRequest) {
+  const auth=await requireRouteUser();if(auth.response)return auth.response;
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q")?.trim();
   const city = searchParams.get("city")?.trim();

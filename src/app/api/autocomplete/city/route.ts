@@ -1,3 +1,4 @@
+import { requireRouteUser } from "@/lib/auth/route";
 import { NextRequest, NextResponse } from "next/server";
 import { getProviderSecret } from "@/lib/config/provider-config";
 
@@ -42,6 +43,7 @@ for (const [name, code] of Object.entries(STATE_CODES)) {
 }
 
 export async function GET(request: NextRequest) {
+  const auth=await requireRouteUser();if(auth.response)return auth.response;
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q")?.trim();
   const sessionToken = searchParams.get("sessionToken") || "";
