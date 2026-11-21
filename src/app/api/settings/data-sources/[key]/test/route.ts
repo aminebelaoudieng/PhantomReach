@@ -7,6 +7,7 @@ import {
   type SecretStatus,
 } from "@/lib/config/local-secrets";
 import { getProviderDefinition } from "@/lib/config/provider-config";
+import { getProviderSecret } from "@/lib/config/provider-config";
 
 interface RouteContext {
   params: Promise<{ key: string }>;
@@ -168,7 +169,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const body = await request.json().catch(() => null);
   const submittedValue = typeof body?.value === "string" ? body.value.trim() : "";
-  const savedValue = submittedValue || (await getSecret(definition.key));
+  const hosted = process.env.PHANTOM_DB_BACKEND === "supabase";
+  if (hosted && submittedValue) {
+    return NextResponse.json(
+      { error: "Hosted secrets are managed with Vercel environment variables." },
+      { status: 409 },
+    );
+  }
+  const savedValue = submittedValue || (hosted
+    ? await getProviderSecret(definition.key)
+    : await getSecret(definition.key));
 
   if (!savedValue) {
     return NextResponse.json({ error: "Enter a key before testing." }, { status: 400 });
@@ -187,6 +197,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     message = error instanceof Error ? error.message : "Connection test failed.";
   }
 
-  await updateSecretTestStatus(definition.key, status, message);
+  if (!hosted) {
+    await updateSecretTestStatus(definition.key, status, message);
+  }
   return NextResponse.json({ status, message });
 }

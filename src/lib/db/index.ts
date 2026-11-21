@@ -1,6 +1,7 @@
 export * from "./types";
 
 import { createLocalSqliteDb } from "./local-sqlite";
+import { createSupabaseDb } from "./supabase";
 import type {
   User,
   Report,
@@ -74,11 +75,14 @@ export interface DbInterface {
 let _db: DbInterface | null = null;
 
 /**
- * Returns the unified database interface backed by local SQLite.
+ * Returns the unified database interface. SQLite remains the local-first
+ * default; hosted deployments opt into Supabase explicitly.
  */
 export function getDb(): DbInterface {
   if (_db) return _db;
-  _db = createLocalSqliteDb();
+  _db = process.env.PHANTOM_DB_BACKEND === "supabase"
+    ? createSupabaseDb()
+    : createLocalSqliteDb();
   return _db;
 }
 

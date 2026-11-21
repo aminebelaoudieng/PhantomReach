@@ -43,8 +43,8 @@ export function AutocompleteInput({
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
-  const abortControllerRef = useRef<AbortController>();
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const abortControllerRef = useRef<AbortController | undefined>(undefined);
 
   // Debounced fetch
   const debouncedFetch = useCallback(

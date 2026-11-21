@@ -48,7 +48,7 @@ function normalizeDbPath(dbPath?: string): string {
   const fromEnv = process.env.DATABASE_URL?.startsWith("file:")
     ? process.env.DATABASE_URL.slice("file:".length)
     : undefined;
-  return resolve(dbPath ?? fromEnv ?? "./data/phantom-reach.db");
+  return resolve(/* turbopackIgnore: true */ dbPath ?? fromEnv ?? "./data/phantom-reach.db");
 }
 
 function initSchema(sqlite: Database.Database): void {

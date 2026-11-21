@@ -4,13 +4,13 @@
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/Node-20%2B-339933.svg)](https://nodejs.org)
-[![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6.svg)](https://www.typescriptlang.org)
 [![Sponsor](https://img.shields.io/badge/Sponsor-calesthio-EA4AAA.svg)](https://github.com/sponsors/calesthio)
 
 Type a business name. Phantom Reach pulls its real public footprint — Google Business Profile, reviews, competitors, site speed, technology stack, social presence, and more — then hands it to a frontier AI model that reasons like a seasoned growth consultant and writes the report for you. Pitch-ready PDF, DOCX, PPTX, or XLSX, every time.
 
-It runs **entirely on your machine**: local SQLite storage, keys managed from an in-app Settings page, and **zero synthetic data** — if a source key is missing, that module is honestly reported as unavailable instead of faked. No Supabase, no Stripe, no cloud lock-in.
+By default it runs **entirely on your machine**: local SQLite storage, keys managed from an in-app Settings page, and **zero synthetic data** — if a source key is missing, that module is honestly reported as unavailable instead of faked. An optional Vercel + Supabase mode is available for a private hosted test while SQLite remains the default.
 
 And because everything lives in plain local files, you can hand the whole project to your AI coding assistant and tell it to run audits, dig deeper, and write follow-up research for you. [Jump to the agentic workflow ↓](#-agentic-by-design--your-coding-assistant-does-the-work)
 
@@ -40,6 +40,7 @@ Screenshots from the explainer use blurred demo data, so they show the report qu
 - **Multi-module digital audit** — Google Business Profile, reviews, competitors, PageSpeed/performance, social presence, technology stack, and business enrichment.
 - **AI executive analysis** — bring your own OpenAI, Anthropic, or Google AI key and a frontier model synthesizes the data into a consultant-style narrative.
 - **Local-first** — SQLite storage, no Supabase/SaaS required for normal use.
+- **Optional hosted mode** — persistent Supabase storage and Vercel environment variables, protected by HTTP Basic authentication.
 - **In-app key management** — add and test data-source keys from `/settings`, no restart needed.
 - **Truthful coverage** — missing keys mark a source unavailable; never synthetic fallback data.
 - **Multi-format exports** — PDF, DOCX, PPTX, and XLSX for any completed report.
@@ -80,6 +81,22 @@ Add and test keys at `/settings` → Data Sources, or set them as environment va
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_AI_API_KEY` | AI executive summary synthesis | Optional |
 
 If a key is missing, the related module is reported as unavailable rather than guessed.
+
+### Vercel + Supabase test deployment
+
+Hosted mode keeps provider keys server-side in Vercel and uses Supabase only for persistent app data. Apply the SQL migration in `supabase/migrations`, then configure these variables for Production, Preview, and Development:
+
+| Variable | Vercel type | Purpose |
+| --- | --- | --- |
+| `PHANTOM_DB_BACKEND=supabase` | Config | Select the hosted database adapter |
+| `SUPABASE_URL` | Config | Supabase project API URL |
+| `SUPABASE_PUBLISHABLE_KEY` | Config | Publishable key; RLS still blocks requests without the server token |
+| `PHANTOM_DB_ACCESS_TOKEN` | Secret | Server-only token checked by Supabase RLS |
+| `APP_ACCESS_USERNAME` | Secret | Username for the private test deployment |
+| `APP_ACCESS_PASSWORD` | Secret | Password for the private test deployment |
+| Provider keys such as `OPENAI_API_KEY` | Secret | Optional live audit data and AI providers |
+
+Do not use `NEXT_PUBLIC_` for provider keys or access tokens. In hosted mode, `/settings` reports which variables are configured, but changes must be made in Vercel so secrets are never written to an ephemeral filesystem.
 
 ## 🧠 AI Intelligence That Reads Like a $300/hr Consultant
 
@@ -190,11 +207,13 @@ npx tsc --noEmit       # Type-check only
 
 ## Security & Privacy
 
-The app stores secrets and data locally. These are gitignored — never commit them:
+In local mode the app stores secrets and data locally. These are gitignored — never commit them:
 
 - `.env.local` — your API keys
 - `.phantom-reach/instance.key` — encrypts saved keys
 - `data/phantom-reach.db` — reports, settings, and the local workspace user
+
+Hosted mode additionally relies on Supabase Row Level Security, a server-only database access token, and HTTP Basic authentication at the Next.js proxy boundary. Never commit Vercel environment values. Because this project is AGPL-3.0, a modified network deployment must make its corresponding source available to its users.
 
 ## License
 

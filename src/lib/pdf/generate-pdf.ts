@@ -1,12 +1,11 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import ReportPDF from "./report-pdf";
 import type { Report } from "@/lib/db/types";
-import type { ReactElement } from "react";
 
 export async function generateReportPDF(report: Report): Promise<Buffer> {
   try {
     // Create the PDF document component
-    const pdfDocument = ReportPDF({ report }) as ReactElement;
+    const pdfDocument = ReportPDF({ report }) as Parameters<typeof renderToBuffer>[0];
 
     // Render to buffer
     const buffer = await renderToBuffer(pdfDocument);

@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireRouteUser } from "@/lib/auth/route";
 import { runAuditPipeline } from "@/lib/agents/orchestrator";
+import { assertPublicHttpUrl } from "@/lib/security/public-http-url";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 const auditRequestSchema = z.object({
   businessName: z.string().min(1, "Business name is required"),
@@ -28,6 +30,16 @@ export async function POST(request: NextRequest) {
     }
 
     const input = parsed.data;
+    if (input.url) {
+      try {
+        await assertPublicHttpUrl(input.url);
+      } catch (error) {
+        return NextResponse.json(
+          { error: "Unsafe website URL", message: error instanceof Error ? error.message : "Blocked URL" },
+          { status: 400 },
+        );
+      }
+    }
     const { user, response } = await requireRouteUser();
     if (response) {
       return response;
@@ -68,35 +80,38 @@ export async function POST(request: NextRequest) {
     // The audit page polls /api/report/{id} until status flips to completed.
     await db.updateReport(report.id, { status: "processing" });
 
-    // Run pipeline in background — DO NOT await
-    runAuditPipeline({
-      businessName: input.businessName,
-      city: input.city,
-      state: input.state,
-      url: input.url || undefined,
-      googleMapsUrl: input.googleMapsUrl || undefined,
-      customDirection: input.customDirection || undefined,
-    })
-      .then(async ({ result, scores }) => {
+    after(async () => {
+      try {
+        const { result, scores } = await runAuditPipeline({
+          businessName: input.businessName,
+          city: input.city,
+          state: input.state,
+          url: input.url || undefined,
+          googleMapsUrl: input.googleMapsUrl || undefined,
+          customDirection: input.customDirection || undefined,
+        });
         await db.updateReport(report.id, {
           status: "completed",
           result,
           scores,
         });
         console.log(`[api/audit] Pipeline completed for report ${report.id}`);
-      })
-      .catch(async (pipelineError: any) => {
+      } catch (pipelineError) {
         await db.updateReport(report.id, {
           status: "failed",
         });
-        console.error(`[api/audit] Pipeline failed for report ${report.id}:`, pipelineError.message);
-      });
+        console.error(
+          `[api/audit] Pipeline failed for report ${report.id}:`,
+          pipelineError instanceof Error ? pipelineError.message : pipelineError,
+        );
+      }
+    });
 
     // Return immediately so the client can navigate to the progress page
     return NextResponse.json({
       reportId: report.id,
       status: "processing",
-      async: false,
+      async: true,
     });
   } catch (err: any) {
     return NextResponse.json(

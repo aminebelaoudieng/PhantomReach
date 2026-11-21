@@ -168,19 +168,22 @@ function envValue(definition: ProviderDefinition): string | undefined {
 }
 
 export async function getProviderSecret(key: LocalSecretKey): Promise<string | undefined> {
+  const definition = PROVIDER_DEFINITIONS.find((item) => item.key === key);
+  const configuredEnv = definition ? envValue(definition) : undefined;
+  const hosted = process.env.PHANTOM_DB_BACKEND === "supabase";
+  if (hosted && configuredEnv) return configuredEnv;
+
   try {
     const sqliteValue = await getSecret(key);
     if (sqliteValue) return sqliteValue;
   } catch {
-    return undefined;
+    // Hosted deployments do not have a writable local secret database.
   }
-
-  const definition = PROVIDER_DEFINITIONS.find((item) => item.key === key);
-  return definition ? envValue(definition) : undefined;
+  return configuredEnv;
 }
 
 export async function listDataSources(): Promise<DataSourceMetadata[]> {
-  const stored = await listSecretMetadata();
+  const stored = await listSecretMetadata().catch(() => []);
   const storedByKey = new Map(stored.map((item) => [item.key, item]));
 
   return PROVIDER_DEFINITIONS.map((definition) => {

@@ -17,6 +17,12 @@ async function resolveDefinition(context: RouteContext) {
 }
 
 export async function PUT(request: NextRequest, context: RouteContext) {
+  if (process.env.PHANTOM_DB_BACKEND === "supabase") {
+    return NextResponse.json(
+      { error: "Hosted secrets are managed with Vercel environment variables." },
+      { status: 409 },
+    );
+  }
   const { key, definition } = await resolveDefinition(context);
   if (!definition) {
     return NextResponse.json({ error: `Unknown data source: ${key}` }, { status: 404 });
@@ -33,6 +39,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
+  if (process.env.PHANTOM_DB_BACKEND === "supabase") {
+    return NextResponse.json(
+      { error: "Hosted secrets are managed with Vercel environment variables." },
+      { status: 409 },
+    );
+  }
   const { key, definition } = await resolveDefinition(context);
   if (!definition) {
     return NextResponse.json({ error: `Unknown data source: ${key}` }, { status: 404 });

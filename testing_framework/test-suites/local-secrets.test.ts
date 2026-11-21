@@ -148,6 +148,17 @@ describe("provider config lookup", () => {
     expect(await getProviderSecret("google_places_api_key")).toBe("sqlite-google-key");
   });
 
+  it("uses Vercel env before SQLite in hosted Supabase mode", async () => {
+    vi.stubEnv("PHANTOM_DB_BACKEND", "supabase");
+    vi.stubEnv("GOOGLE_PLACES_API_KEY", "env-google-key");
+    const { setSecret } = await import("@/lib/config/local-secrets");
+    const { getProviderSecret } = await import("@/lib/config/provider-config");
+
+    await setSecret("google_places_api_key", "Google Places", "google", "sqlite-google-key");
+
+    expect(await getProviderSecret("google_places_api_key")).toBe("env-google-key");
+  });
+
   it("lists all configured and missing data sources with masked values only", async () => {
     const { setSecret } = await import("@/lib/config/local-secrets");
     const { listDataSources } = await import("@/lib/config/provider-config");
