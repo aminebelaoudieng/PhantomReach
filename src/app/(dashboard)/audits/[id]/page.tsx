@@ -777,7 +777,7 @@ export default function AuditReportPage() {
   const scores = report.scores;
 
   if (result?.grow && !result.grow.profileFound) return <div className="mx-auto max-w-xl rounded-xl border bg-white p-8 text-center"><h2 className="text-xl font-bold">Fiche Google non identifiée</h2><p className="mt-3 text-sm text-slate-600">Ce rapport ne contient aucune donnée vérifiée. Relancez l’audit en sélectionnant l’entreprise et la ville correctes.</p><Link href="/audits/new" className="mt-5 inline-block rounded-lg bg-[#114537] px-4 py-2 text-white">Nouvel audit</Link></div>;
-  if (result?.grow) return <GrowReport audit={result.grow} id={report.id}/>;
+  if (result?.grow) return <GrowReport audit={result.grow} id={report.id} editable/>;
 
   // Revenue scenario toggle — Conservative / Moderate / Aggressive
   if (!result) {
