@@ -5,6 +5,7 @@ import { decryptSecret, encryptSecret } from "./crypto";
 import { loadInstanceKey } from "./instance-key";
 
 export type LocalSecretKey =
+  | "serpkite_api_key"
   | "google_places_api_key"
   | "google_pagespeed_api_key"
   | "google_crux_api_key"

@@ -1,3 +1,4 @@
+import { GrowReport } from "@/components/reports/grow-report";
 import { Metadata } from "next";
 import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -196,6 +197,8 @@ export default async function PublicReportPage({
     return <ScoutReportView report={report} />;
   }
 
+  const grow=(report.result as AuditResult | undefined)?.grow;
+  if(grow) return <GrowReport audit={grow} id={report.id}/>;
   return <AuditReportView report={report} />;
 }
 

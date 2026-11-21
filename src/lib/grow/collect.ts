@@ -1,4 +1,6 @@
 import type { AuditInput, AuditResult, ReportScores } from "@/lib/db/types";
+import { getProviderSecret } from "@/lib/config/provider-config";
+import { fetchGoogleReviews } from "@/lib/agents/tools/reviews";
 import { lookupGoogleMaps } from "@/lib/agents/tools/google-maps";
 import { runPageSpeedAudit } from "@/lib/agents/tools/pagespeed";
 import { assertPublicHttpUrl } from "@/lib/security/public-http-url";
@@ -16,7 +18,7 @@ const safeName=(s:unknown)=>typeof s==="string"?s.trim().slice(0,150):"";
 const grade=(n:number|null)=>n===null?"N/D":n>=90?"A":n>=80?"B":n>=70?"C":n>=60?"D":"F";
 
 export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult;scores:ReportScores}> {
-  const key=process.env.SERPKITE_API_KEY?.trim();
+  const key=(await getProviderSecret("serpkite_api_key"))?.trim();
   const country=(process.env.GROW_COUNTRY||"ca").toLowerCase();
   const location=[input.city,input.state,country==="ca"?"Canada":country==="us"?"United States":""].filter(Boolean).join(", ");
   const notes:string[]=[];
@@ -42,7 +44,7 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
   if(key){
     const match=await call("maps",{q:[searchName,input.city,input.state].filter(Boolean).join(" "),location});
     const candidates=(match?.results??[]) as Place[];
-    const matches=candidates.filter(c=>targetId?c.place_id===targetId:normalize(c.title||"")===normalize(searchName));
+    const matches=candidates.filter(c=>targetId?c.place_id===targetId:normalize(c.title||"")===normalize(searchName)&&(!input.city||normalize(c.address||"").includes(normalize(input.city))));
     if(matches.length===1&&idFor(matches[0])){
       p=matches[0]; profileFound=true; source="SerpKite / Google Maps";
       const details=await call("place",idFor(p)!);
@@ -52,7 +54,7 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
   } else notes.push("SerpKite non configuré : grille et tests IA non mesurés.");
   if(!profileFound){
     const fallback=await lookupGoogleMaps(input);
-    if("raw" in fallback&&normalize(fallback.raw.title)===normalize(searchName)&&(!targetId||fallback.raw.place_id===targetId)){
+    if("raw" in fallback&&normalize(fallback.raw.title)===normalize(searchName)&&(!targetId||fallback.raw.place_id===targetId)&&(!input.city||normalize(fallback.raw.address||"").includes(normalize(input.city)))){
       const r=fallback.raw;
       p={title:r.title,place_id:r.place_id,address:r.address,phone_number:r.phone,website:r.website,type:r.category,rating:r.rating,rating_count:r.reviews,opening_hours:r.operating_hours,latitude:r.gps_coordinates?.latitude,longitude:r.gps_coordinates?.longitude};
       profileFound=true;source="Google Places";
@@ -98,12 +100,14 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
     grid.push(...results);
   }
   const reviewData=await reviewPromise;
-  const rawReviews=(reviewData?.results??[]) as Review[];
+  let rawReviews=(reviewData?.results??[]) as Review[];
+  let reviewSource: "serpkite" | "google" | "none" = reviewData && Array.isArray(reviewData.results) ? "serpkite" : "none";
+  if(reviewSource==="none"&&profileFound&&p.place_id){const fallback=await fetchGoogleReviews({placeId:p.place_id,businessName:searchName,city:input.city});if("reviews" in fallback){rawReviews=fallback.reviews.map(r=>({rating:r.rating,iso_date:r.date}));reviewSource="google";}}
   const rated=rawReviews.filter(r=>number(r.rating)!==null&&Number.isInteger(r.rating)&&r.rating!>=1&&r.rating!<=5);
   const dates=rawReviews.map(r=>r.iso_date).filter((d):d is string=>typeof d==="string"&&Number.isFinite(Date.parse(d))&&Date.parse(d)<=Date.now()).sort((a,b)=>Date.parse(b)-Date.parse(a));
-  const reviewSample={count:rawReviews.length,rated:rated.length,replied:rawReviews.length?rawReviews.filter(r=>!!r.response?.snippet).length:null,stars:[5,4,3,2,1].map(n=>rated.filter(r=>r.rating===n).length),newestObserved:dates.length?formatDate(dates[0]):null};
+  const reviewSample={count:rawReviews.length,rated:rated.length,replied:reviewSource==="serpkite"&&reviewData?.meta?.parse_quality==="ok"&&rawReviews.length?rawReviews.filter(r=>!!r.response?.snippet).length:null,stars:[5,4,3,2,1].map(n=>rated.filter(r=>r.rating===n).length),newestObserved:dates.length?formatDate(dates[0]):null,source:reviewSource};
   const engines=[["chatgpt","ChatGPT",5],["gemini","Gemini",5],["ai_mode","Google AI Mode",3]] as const;
-  const ai:AIAnswer[]=await Promise.all(engines.map(async ([endpoint,engine,cost])=>{
+  const ai:AIAnswer[]=await Promise.all(engines.map(async ([endpoint,engine,cost]):Promise<AIAnswer>=>{
     const e=profileFound&&keyword&&location&&process.env.GROW_AI_VISIBILITY!=="off"?await call(endpoint,{prompt:"Quels prestataires de "+keyword+" recommandez-vous à "+location+" ? Donnez des entreprises locales réelles.",track:[p.title!,...competitors.map(c=>c.name)]},cost):null;
     const mention=e?.mentions?.find(m=>normalize(m.term||"")===normalize(p.title||""));
     return {engine,state:e?.text&&typeof mention?.mentioned==="boolean"?(mention.mentioned?"mentioned":"absent"):"unknown",sources:[...new Set((e?.sources??[]).filter(s=>s.cited&&s.domain).map(s=>s.domain!))].slice(0,3),competitors:(e?.mentions??[]).filter(m=>m.mentioned&&competitors.some(c=>normalize(c.name)===normalize(m.term||""))).map(m=>safeName(m.term)).slice(0,3)};

@@ -65,7 +65,7 @@ export default async function AuditsPage() {
                   <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
                     <div className="flex gap-6 items-center flex-1">
                       {scores ? (
-                        <GradeBadge grade={scores.overall_grade} score={scores.overall_score} size="md" />
+                        <GradeBadge grade={scores.overall_grade} score={scores.overall_grade==="N/D"?undefined:scores.overall_score} size="md" />
                       ) : (
                         <div className="h-16 w-16 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200">
                           <Activity className="h-6 w-6 text-slate-400" />

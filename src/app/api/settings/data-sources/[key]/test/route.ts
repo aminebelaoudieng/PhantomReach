@@ -151,6 +151,11 @@ async function testAiKey(key: LocalSecretKey, value: string): Promise<string> {
 }
 
 async function runProviderTest(key: LocalSecretKey, value: string): Promise<string> {
+  if (key === "serpkite_api_key") {
+    const response=await fetch("https://api.serpkite.com/v1/account",{headers:{Authorization:"Bearer "+value},signal:AbortSignal.timeout(8000)});
+    if(!response.ok) throw new Error("SerpKite returned "+response.status);
+    return "SerpKite connecté.";
+  }
   if (key === "google_places_api_key") return testGooglePlaces(value);
   if (key === "google_pagespeed_api_key") return testPageSpeed(value);
   if (key === "google_crux_api_key") return testCrux(value);

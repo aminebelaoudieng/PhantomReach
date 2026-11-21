@@ -27,6 +27,7 @@ export interface DataSourceMetadata extends SecretMetadata {
 }
 
 export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
+  { key:"serpkite_api_key",provider:"serpkite",label:"SerpKite",env:["SERPKITE_API_KEY"],required:false,unlocks:"Fiche Google, avis, concurrents, GeoGrid et visibilité IA.",setup:{docsUrl:"https://serpkite.com/docs",envVar:"SERPKITE_API_KEY",steps:["Créer une clé API SerpKite.","Configurer une limite de consommation dans SerpKite.","Sur Vercel, ajouter la clé dans les variables Preview ; en local, enregistrer la clé ici."]}},
   {
     key: "google_places_api_key",
     provider: "google",
