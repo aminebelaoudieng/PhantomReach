@@ -7,11 +7,15 @@ const grid:Point[]=Array.from({length:25},(_,i)=>({lat:45.5+(2-Math.floor(i/5))*
 const a:GrowAudit={version:2,name:"Entreprise Démo | Services d’entretien",location:"Montréal, QC, Canada",date:"2026-11-21",keyword:"entretien ménager résidentiel",source:"Fixture fictive",profileFound:true,rating:5,reviewCount:3,score:88,coverage:8,checks:[{title:"Site relié",value:"Aucun lien observé",state:"improve"},{title:"Description",value:"Description présente",state:"ok"}],reviewSample:{count:3,rated:3,replied:0,stars:[3,0,0,0,0],newestObserved:"2023-11-13"},competitors:[{name:"Concurrent A",rank:1,rating:4.8,reviews:98,website:true},{name:"Concurrent B",rank:3,rating:4.9,reviews:49,website:true}],grid,spacingKm:.7,ai:[{engine:"ChatGPT",state:"absent",sources:[],competitors:[]},{engine:"Gemini",state:"absent",sources:[],competitors:[]},{engine:"Google AI Mode",state:"absent",sources:[],competitors:[]}],website:{url:null,state:"not_linked",performance:null,seo:null},priorities:[],notes:[],commercial:{monthlyPriceCad:199,monthlySearches:1000,jobValueCad:350}};
 describe("Grow PDF",()=>{
  it("renders a fourteen-page document with every page in A4 portrait",async()=>{
-  const pdf=await generateGrowPDF(a,{map:false});
+  let layout:unknown;
+  const pdf=await generateGrowPDF(a,{map:false,onRender:data=>{layout=data;}});
   expect(pdf.byteLength).toBeGreaterThan(5000);
   const raw=pdf.toString("latin1");
   const pages=[...raw.matchAll(/\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]/g)];
   expect(pages.length).toBe(14);
+  // React PDF exposes the laid out document via its render callback.
+  const root=(layout as { _INTERNAL__LAYOUT__DATA_?: {children:{children:{box?:{top:number;height:number};style?:{position?:string};type?:string}[]}[]} } | undefined)?._INTERNAL__LAYOUT__DATA_;
+  if(root?.children){const overflow=root.children.flatMap((page,i)=>i===0?[]:page.children.filter(node=>node.box&&node.style?.position!=="absolute"&&node.box.top+node.box.height>807).map(node=>({page:i+1,bottom:Math.round(node.box!.top+node.box!.height)})));expect(overflow).toEqual([]);}
   for(const box of pages){expect(Number(box[1])).toBeCloseTo(595.28,0);expect(Number(box[2])).toBeCloseTo(841.89,0);}
  },30000);
  it("renders the existing-site variant and handles unmeasured data",async()=>{
