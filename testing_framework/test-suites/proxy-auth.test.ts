@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
 
 describe("hosted access proxy", () => {
+  beforeEach(()=>{vi.stubEnv("PHANTOM_DB_BACKEND","");vi.stubEnv("VERCEL","");vi.stubEnv("APP_ACCESS_USERNAME","");vi.stubEnv("APP_ACCESS_PASSWORD","");});
   afterEach(() => vi.unstubAllEnvs());
 
   it("leaves local development unprotected when credentials are absent", async () => {
