@@ -12,6 +12,7 @@ export interface GrowAudit {
   website: { url: string | null; performance: number | null; seo: number | null; state: "linked" | "not_linked" | "unknown"; details?: import("./website-details").WebsiteDetails; onpage?: import("./onpage").OnPageAudit };
   commercial?: CommercialInputs;
   narrative?: import('./narrative').GrowNarrative;
+  narrativeUsage?: import('./narrative').NarrativeUsage;
   notes: string[]; priorities: { title: string; detail: string }[];
 }
 export const rankLabel = (p: Point) => p.state === "found" ? String(p.rank) : p.state === "outside" ? ">" + p.depth : "—";

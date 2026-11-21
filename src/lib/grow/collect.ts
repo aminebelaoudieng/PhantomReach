@@ -152,6 +152,8 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
   const bookingUrl=process.env.GROW_BOOKING_URL?.trim();
   const commercial={monthlySearches:input.monthlySearches,jobValueCad:input.jobValueCad,monthlyPriceCad:input.monthlyPriceCad||(Number.isFinite(configuredPrice)&&configuredPrice>0?configuredPrice:undefined),bookingUrl:bookingUrl&&/^https:\/\//i.test(bookingUrl)?bookingUrl:undefined};
   const grow:GrowAudit={version:2,commercial,name:p.title||searchName,location,date:new Date().toISOString().slice(0,10),keyword,source,profileFound,rating:number(p.rating),reviewCount:number(p.rating_count),checks,score,coverage,reviewSample,competitors,grid,spacingKm,ai,website,notes,priorities:priorities.slice(0,3)};
-  grow.narrative=await generateGrowNarrative(grow);
+  const commentary=await generateGrowNarrative(grow);
+  grow.narrative=commentary.narrative;
+  grow.narrativeUsage=commentary.usage;
   return {result:{executive_summary:"Audit de visibilité locale",recommendations:[],grow},scores:{overall_grade:grade(score),overall_score:score??0,module_grades:{gbp_health:grade(score)}}};
 }
