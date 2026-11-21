@@ -141,6 +141,7 @@ export default function SettingsPage() {
 
   const testDataSource = async (key: string) => {
     setBusy(key, true);
+    setMessage(null);
     try {
       const value = sourceInputs[key]?.trim();
       const response = await fetch(`/api/settings/data-sources/${key}/test`, {
@@ -148,7 +149,8 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(value ? { value } : {}),
       });
-      const body = await response.json();
+      const body = await response.json().catch(()=>null);
+      if(!body)throw new Error("Le serveur n’a pas renvoyé de résultat (HTTP "+response.status+"). Réessayez.");
       if (!response.ok) throw new Error(body.error || "Connection test failed.");
       await loadDataSources();
       setMessage({ type: body.status === "connected" ? "success" : "error", text: body.message });

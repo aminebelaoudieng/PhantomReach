@@ -8,6 +8,8 @@ import {
 } from "@/lib/config/local-secrets";
 import { getProviderDefinition } from "@/lib/config/provider-config";
 import { getProviderSecret } from "@/lib/config/provider-config";
+import { pageSpeedError,pageSpeedTimeout } from "@/lib/config/pagespeed-response";
+export const maxDuration=120;
 
 interface RouteContext {
   params: Promise<{ key: string }>;
@@ -33,16 +35,28 @@ async function testGooglePlaces(value: string): Promise<string> {
 
 async function testPageSpeed(value: string): Promise<string> {
   const params = new URLSearchParams({
-    url: "https://example.com",
+    url: "https://example.com/",
     strategy: "mobile",
+    category: "performance",
+    fields: "lighthouseResult(categories(performance(score)),runtimeError),analysisUTCTimestamp",
     key: value,
   });
-  const response = await fetch(
-    `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${params}`,
-    { signal: AbortSignal.timeout(12000) }
-  );
-  if (!response.ok) throw new Error(`PageSpeed returned ${response.status}`);
-  return "PageSpeed responded successfully.";
+  const started=Date.now();
+  try{
+    const response = await fetch(
+      "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?"+params,
+      { signal: AbortSignal.timeout(75000), cache:"no-store" }
+    );
+    if (!response.ok) throw new Error(await pageSpeedError(response));
+    const data=await response.json();
+    if(data?.lighthouseResult?.runtimeError||typeof data?.lighthouseResult?.categories?.performance?.score!=="number")throw new Error("Google répond, mais le test Lighthouse n’a pas produit de score. Réessayez.");
+    console.info("[settings/pagespeed] success",Math.round((Date.now()-started)/1000),"s");
+    return "PageSpeed connecté : analyse mobile réussie ("+Math.round((Date.now()-started)/1000)+" s).";
+  }catch(error){
+    if(pageSpeedTimeout(error))throw new Error("PageSpeed : Google n’a pas terminé le test en 75 secondes. Cela ne signifie pas que la clé est invalide. Réessayez.");
+    if(error instanceof Error&&(/^(PageSpeed HTTP |Google répond)/.test(error.message)))throw error;
+    throw new Error("PageSpeed : erreur réseau ou réponse Google illisible. Réessayez.");
+  }
 }
 
 async function testCrux(value: string): Promise<string> {
@@ -200,6 +214,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   } catch (error) {
     status = "invalid";
     message = error instanceof Error ? error.message : "Connection test failed.";
+    if(definition.key==="google_pagespeed_api_key")console.warn("[settings/pagespeed]",message);
   }
 
   if (!hosted) {

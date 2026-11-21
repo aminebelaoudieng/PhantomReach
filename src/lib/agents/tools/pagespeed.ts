@@ -3,6 +3,7 @@
  * Tool: run_pagespeed_audit
  */
 
+import { pageSpeedError,pageSpeedTimeout } from "@/lib/config/pagespeed-response";
 import { auditIds } from "@/lib/grow/website-details";
 import type { WebsitePerformanceResult } from "@/lib/db/types";
 import { getProviderSecret } from "@/lib/config/provider-config";
@@ -43,19 +44,15 @@ export async function runPageSpeedAudit(
     }
 
     const response = await fetch(url.toString(), {
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(65000),
+      cache:"no-store",
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return unavailable("pagespeed", "blocked", "PageSpeed Insights rate limit was reached.");
-      }
-      throw new Error(`PageSpeed API error: ${response.status} ${response.statusText}`);
-    }
+    if(!response.ok){const reason=await pageSpeedError(response);console.warn("[grow/pagespeed]",reason);return unavailable("pagespeed",response.status===429||response.status===403?"blocked":"failed",reason); }
 
     const data = await response.json();
     const lighthouseResult = data.lighthouseResult;
-    if (!lighthouseResult) {
+    if (!lighthouseResult || lighthouseResult.runtimeError) {
       throw new Error("No Lighthouse result in PageSpeed response");
     }
 
@@ -158,10 +155,9 @@ export async function runPageSpeedAudit(
     };
 
     return { analysis, rawLighthouse };
-  } catch (err: any) {
-    if (err.name === "TimeoutError" || err.message?.includes("timeout")) {
-      return unavailable("pagespeed", "failed", "PageSpeed Insights request timed out.");
-    }
-    return unavailable("pagespeed", "failed", `PageSpeed audit failed: ${err.message}`);
+  } catch (error: unknown) {
+    const reason=pageSpeedTimeout(error)?"PageSpeed : délai Google de 65 secondes dépassé.":"PageSpeed : analyse indisponible ou réponse incomplète.";
+    console.warn("[grow/pagespeed]",reason);
+    return unavailable("pagespeed","failed",reason);
   }
 }

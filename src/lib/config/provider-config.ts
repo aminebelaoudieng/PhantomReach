@@ -56,9 +56,9 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
       docsUrl: "https://console.cloud.google.com/apis/library/pagespeedonline.googleapis.com",
       envVar: "GOOGLE_PAGESPEED_API_KEY",
       steps: [
-        "Use the same Google Cloud project as Places if possible.",
-        "Enable the PageSpeed Insights API.",
-        "Create or reuse an API key and paste it here.",
+        "Activer PageSpeed Insights API dans le projet Google Cloud de la clé.",
+        "Autoriser cette API dans les restrictions de la clé. Les restrictions par référent navigateur ne conviennent pas à Vercel côté serveur.",
+        "En production : ajouter GOOGLE_PAGESPEED_API_KEY dans Vercel et redéployer. Le test Lighthouse peut prendre jusqu’à 75 secondes.",
       ],
     },
   },
