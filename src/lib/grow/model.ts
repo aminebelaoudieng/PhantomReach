@@ -9,8 +9,9 @@ export interface GrowAudit {
   checks: Check[]; score: number | null; coverage: number;
   reviewSample: { count: number; rated: number; replied: number | null; stars: number[]; newestObserved: string | null; source?: 'serpkite' | 'google' | 'none'; words?: {word:string;count:number}[]; textCount?: number };
   competitors: Competitor[]; grid: Point[]; spacingKm: number; ai: AIAnswer[];
-  website: { url: string | null; performance: number | null; seo: number | null; state: "linked" | "not_linked" | "unknown" };
+  website: { url: string | null; performance: number | null; seo: number | null; state: "linked" | "not_linked" | "unknown"; details?: import("./website-details").WebsiteDetails };
   commercial?: CommercialInputs;
+  narrative?: import('./narrative').GrowNarrative;
   notes: string[]; priorities: { title: string; detail: string }[];
 }
 export const rankLabel = (p: Point) => p.state === "found" ? String(p.rank) : p.state === "outside" ? ">" + p.depth : "—";

@@ -5,6 +5,8 @@ import { fetchGoogleReviews } from "@/lib/agents/tools/reviews";
 import { lookupGoogleMaps } from "@/lib/agents/tools/google-maps";
 import { runPageSpeedAudit } from "@/lib/agents/tools/pagespeed";
 import { assertPublicHttpUrl } from "@/lib/security/public-http-url";
+import { generateGrowNarrative } from "./narrative";
+import { websiteDetails,type WebsiteDetails } from "./website-details";
 import { reviewWords } from "./premium";
 import { scoreChecks, summarizeGrid, type GrowAudit, type Point, type Competitor, type Check, type AIAnswer } from "./model";
 
@@ -129,9 +131,9 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
     return {engine,excerpt:typeof e?.text==="string"?e.text.replace(/\s+/g," ").slice(0,550):undefined,state:e?.text&&typeof mention?.mentioned==="boolean"?(mention.mentioned?"mentioned":"absent"):"unknown",sources:[...new Set((e?.sources??[]).filter(s=>s.cited&&s.domain).map(s=>s.domain!))].slice(0,3),competitors:(e?.mentions??[]).filter(m=>m.mentioned&&competitors.some(c=>normalize(c.name)===normalize(m.term||""))).map(m=>safeName(m.term)).slice(0,3)};
   }));
   const websiteUrl=input.url||p.website||null;
-  let performance:number|null=null,seo:number|null=null;
-  if(websiteUrl)try{await assertPublicHttpUrl(websiteUrl);const psi=await runPageSpeedAudit({url:websiteUrl});if("analysis" in psi){performance=psi.analysis.performance_score;seo=psi.analysis.seo_score;}}catch{}
-  const website:GrowAudit["website"]={url:websiteUrl,performance,seo,state:p.website?"linked":profileFound&&detailed?"not_linked":"unknown"};
+  let performance:number|null=null,seo:number|null=null,details:WebsiteDetails|undefined;
+  if(websiteUrl)try{await assertPublicHttpUrl(websiteUrl);const psi=await runPageSpeedAudit({url:websiteUrl});if("analysis" in psi){performance=psi.analysis.performance_score;seo=psi.analysis.seo_score;details=websiteDetails(psi.rawLighthouse);}}catch{}
+  const website:GrowAudit["website"]={url:websiteUrl,performance,seo,details,state:p.website?"linked":profileFound&&detailed?"not_linked":"unknown"};
   const priorities:GrowAudit["priorities"]=[];
   if(website.state==="not_linked")priorities.push({title:"Relier un site à votre fiche",detail:"Présenter vos prestations et proposer une demande de soumission simple."});
   if(number(p.rating_count)!==null&&competitors.some(c=>c.reviews!==null&&c.reviews>p.rating_count!))priorities.push({title:"Développer votre réputation",detail:"Inviter tous vos clients à partager un avis honnête après une prestation, sans sélectionner seulement les clients satisfaits."});
@@ -148,5 +150,6 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
   const bookingUrl=process.env.GROW_BOOKING_URL?.trim();
   const commercial={monthlySearches:input.monthlySearches,jobValueCad:input.jobValueCad,monthlyPriceCad:input.monthlyPriceCad||(Number.isFinite(configuredPrice)&&configuredPrice>0?configuredPrice:undefined),bookingUrl:bookingUrl&&/^https:\/\//i.test(bookingUrl)?bookingUrl:undefined};
   const grow:GrowAudit={version:2,commercial,name:p.title||searchName,location,date:new Date().toISOString().slice(0,10),keyword,source,profileFound,rating:number(p.rating),reviewCount:number(p.rating_count),checks,score,coverage,reviewSample,competitors,grid,spacingKm,ai,website,notes,priorities:priorities.slice(0,3)};
+  grow.narrative=await generateGrowNarrative(grow);
   return {result:{executive_summary:"Audit de visibilité locale",recommendations:[],grow},scores:{overall_grade:grade(score),overall_score:score??0,module_grades:{gbp_health:grade(score)}}};
 }

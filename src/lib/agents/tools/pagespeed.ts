@@ -3,6 +3,7 @@
  * Tool: run_pagespeed_audit
  */
 
+import { auditIds } from "@/lib/grow/website-details";
 import type { WebsitePerformanceResult } from "@/lib/db/types";
 import { getProviderSecret } from "@/lib/config/provider-config";
 import { unavailable, type UnavailableResult } from "./unavailable";
@@ -61,14 +62,15 @@ export async function runPageSpeedAudit(
     const categories = lighthouseResult.categories || {};
     const audits = lighthouseResult.audits || {};
 
-    const performanceScore = Math.round((categories.performance?.score || 0) * 100);
+    if(typeof categories.performance?.score!=="number"||typeof categories.seo?.score!=="number")return unavailable("pagespeed","failed","PageSpeed scores unavailable.");
+    const performanceScore = Math.round(categories.performance.score * 100);
     const accessibilityScore = Math.round((categories.accessibility?.score || 0) * 100);
     const seoScore = Math.round((categories.seo?.score || 0) * 100);
     const bestPracticesScore = Math.round((categories["best-practices"]?.score || 0) * 100);
 
     const lcp = audits["largest-contentful-paint"]?.numericValue;
     const cls = audits["cumulative-layout-shift"]?.numericValue;
-    const inp = audits["interaction-to-next-paint"]?.numericValue || audits["total-blocking-time"]?.numericValue;
+    const inp = audits["interaction-to-next-paint"]?.numericValue;
 
     const lcpPass = lcp ? lcp <= 2500 : false;
     const clsPass = cls ? cls <= 0.1 : false;
@@ -152,11 +154,7 @@ export async function runPageSpeedAudit(
 
     const rawLighthouse = {
       categories,
-      audits: Object.fromEntries(
-        Object.entries(audits)
-          .filter(([, v]: [string, any]) => v && v.score !== null && v.score !== undefined)
-          .slice(0, 25)
-      ),
+      audits: Object.fromEntries(Object.entries(audits).filter(([id,v])=>v&&(auditIds as readonly string[]).includes(id))),
     };
 
     return { analysis, rawLighthouse };

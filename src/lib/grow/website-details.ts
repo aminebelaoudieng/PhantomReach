@@ -1,0 +1,13 @@
+import type {CheckState} from "./model";
+export type WebsiteDetails={lcpMs:number|null;fcpMs:number|null;tbtMs:number|null;cls:number|null;accessibility:number|null;bestPractices:number|null;checks:{label:string;state:CheckState;detail:string}[]};
+function finite(v:unknown):number|null{return typeof v==="number"&&Number.isFinite(v)&&v>=0?v:null;}
+export const auditIds=["largest-contentful-paint","first-contentful-paint","total-blocking-time","cumulative-layout-shift","document-title","meta-description","is-on-https","image-alt","robots-txt","canonical","crawlable-anchors","is-crawlable","viewport","heading-order"] as const;
+type Raw={categories?:Record<string,{score?:number|null}>;audits?:Record<string,{score?:number|null;numericValue?:number;scoreDisplayMode?:string}>};
+export function websiteDetails(raw:unknown):WebsiteDetails{
+ const r=(raw||{}) as Raw;
+ const audits=r.audits||{}, cats=r.categories||{};
+ const val=(key:string)=>finite(audits[key]?.numericValue);
+ const score=(key:string)=>{const n=finite(cats[key]?.score);return n===null?null:Math.round(n*100);};
+ const defs=[["document-title","Titre de page","Le titre est renseigné.","Le titre est absent ou ne satisfait pas le contrôle."],["meta-description","Description Google","Une description est renseignée.","La description est absente ou ne satisfait pas le contrôle."],["is-on-https","Connexion HTTPS","Connexion sécurisée détectée.","La connexion HTTPS présente un problème."],["image-alt","Description des images","Contrôle des textes alternatifs réussi.","Certaines images échouent au contrôle."],["robots-txt","Fichier robots.txt","Contrôle Lighthouse réussi (ne garantit pas sa présence).","Le fichier présente un problème de syntaxe."],["canonical","Adresse canonique","Contrôle Lighthouse réussi.","L’adresse canonique présente un problème."],["is-crawlable","Indexabilité","Aucun blocage détecté par ce contrôle.","Un blocage d’indexation a été détecté."],["viewport","Affichage mobile","Viewport adapté détecté.","Le viewport présente un problème."],["heading-order","Structure des titres","Contrôle de hiérarchie réussi.","La hiérarchie des titres est à revoir."]];
+ return {lcpMs:val("largest-contentful-paint"),fcpMs:val("first-contentful-paint"),tbtMs:val("total-blocking-time"),cls:val("cumulative-layout-shift"),accessibility:score("accessibility"),bestPractices:score("best-practices"),checks:defs.map(([id,label,ok,bad])=>{const a=audits[id];const n=finite(a?.score);const state:CheckState=n===null||["manual","notApplicable","informative","error"].includes(a?.scoreDisplayMode||"")?"unknown":n===1?"ok":"improve";return{label,state,detail:state==="unknown"?"Non mesuré":state==="ok"?ok:bad};})};
+}

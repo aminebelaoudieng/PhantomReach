@@ -143,7 +143,7 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     label: "Google Gemini API Key",
     env: ["GOOGLE_AI_API_KEY", "GEMINI_API_KEY"],
     required: false,
-    unlocks: "Use Gemini for executive summaries and strategy writing.",
+    unlocks: "Rédige les commentaires personnalisés Grow System et les analyses historiques.",
   },
   {
     key: "yelp_api_key",
