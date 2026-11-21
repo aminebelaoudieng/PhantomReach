@@ -1,338 +1,80 @@
 "use client";
-
-import { useState, useCallback, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AutocompleteInput, type AutocompleteSuggestion } from "@/components/ui/autocomplete-input";
-import { Search, MapPin, Globe, MessageSquare } from "lucide-react";
+import { Search, MapPin, Globe } from "lucide-react";
+import { cleanLocation } from "@/lib/grow/location";
 
-/** Generate a UUID v4 for Google Places session tokens */
-function generateSessionToken(): string {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  // Fallback for older browsers
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
-export default function NewAuditPage() {
-  const router = useRouter();
-  const [formData, setFormData] = useState({
-    businessName: "",
-    placeId: "",
-    city: "",
-    state: "",
-    url: "",
-    googleMapsUrl: "",
-    customDirection: "",
-  });
-
-  // Session tokens for Google Places API cost optimization
-  // Each autocomplete → place details flow shares one token
-  const businessSessionToken = useRef(generateSessionToken());
-  const citySessionToken = useRef(generateSessionToken());
-
-  // Business name autocomplete fetcher
-  const fetchBusinessSuggestions = useCallback(
-    async (query: string): Promise<AutocompleteSuggestion[]> => {
-      try {
-        const params = new URLSearchParams({
-          q: query,
-          sessionToken: businessSessionToken.current,
-        });
-        if (formData.city) params.set("city", formData.city);
-
-        const res = await fetch(`/api/autocomplete/business?${params}`);
-        if (!res.ok) return [];
-        const data = await res.json();
-
-        return (data.suggestions || []).map(
-          (s: {
-            name: string;
-            address?: string;
-            rating?: number;
-            reviewCount?: number;
-            category?: string;
-            city?: string;
-            state?: string;
-            website?: string;
-            phone?: string;
-            googleMapsUrl?: string;
-            placeId?: string;
-          }) => ({
-            label: s.name,
-            sublabel: [
-              s.address,
-              s.rating ? `${s.rating}★ (${s.reviewCount || 0} reviews)` : null,
-              s.category,
-            ]
-              .filter(Boolean)
-              .join(" · "),
-            data: {
-              city: s.city,
-              state: s.state,
-              website: s.website,
-              phone: s.phone,
-              googleMapsUrl: s.googleMapsUrl,
-              placeId: s.placeId,
-              rating: s.rating,
-              reviewCount: s.reviewCount,
-              category: s.category,
-              address: s.address,
-            },
-          })
-        );
-      } catch {
-        return [];
-      }
-    },
-    [formData.city]
-  );
-
-  // City autocomplete fetcher
-  const fetchCitySuggestions = useCallback(
-    async (query: string): Promise<AutocompleteSuggestion[]> => {
-      try {
-        const params = new URLSearchParams({
-          q: query,
-          sessionToken: citySessionToken.current,
-        });
-        const res = await fetch(`/api/autocomplete/city?${params}`);
-        if (!res.ok) return [];
-        const data = await res.json();
-
-        return (data.suggestions || []).map(
-          (s: { city: string; stateCode: string; state: string }) => ({
-            label: `${s.city}, ${s.stateCode}`,
-            sublabel: s.state,
-            data: { city: s.city, stateCode: s.stateCode },
-          })
-        );
-      } catch {
-        return [];
-      }
-    },
-    []
-  );
-
-  // When a business is selected — fetch place details for website/phone
-  async function handleBusinessSelect(suggestion: AutocompleteSuggestion) {
-    const d = suggestion.data || {};
-    const placeId = d.placeId as string;
-
-    // Immediately fill what we have from autocomplete
-    setFormData((prev) => ({
-      ...prev,
-      businessName: suggestion.label,
-      placeId: placeId || "",
-      city: (d.city as string) || prev.city,
-      state: (d.state as string) || prev.state,
-      url: (d.website as string) || prev.url,
-      googleMapsUrl: (d.googleMapsUrl as string) || prev.googleMapsUrl,
-    }));
-
-    // If we have a placeId, fetch full details (website, phone, etc.)
-    if (placeId) {
-      try {
-        const params = new URLSearchParams({
-          placeId,
-          sessionToken: businessSessionToken.current,
-        });
-        const res = await fetch(`/api/autocomplete/place-details?${params}`);
-        if (res.ok) {
-          const { details } = await res.json();
-          if (details) {
-            setFormData((prev) => ({
-              ...prev,
-              city: details.city || prev.city,
-              state: details.state || prev.state,
-              url: details.website || prev.url,
-              googleMapsUrl: details.googleMapsUrl || prev.googleMapsUrl,
-            }));
-          }
-        }
-      } catch (err) {
-        console.error("Place details fetch failed:", err);
-      }
-
-      // Rotate session token after place details call (billing session complete)
-      businessSessionToken.current = generateSessionToken();
-    }
-  }
-
-  // When a city is selected from autocomplete
-  function handleCitySelect(suggestion: AutocompleteSuggestion) {
-    const d = suggestion.data || {};
-    setFormData((prev) => ({
-      ...prev,
-      city: (d.city as string) || suggestion.label.split(",")[0],
-      state: (d.stateCode as string) || prev.state,
-    }));
-    // Rotate city session token
-    citySessionToken.current = generateSessionToken();
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!formData.businessName.trim()) return;
-
-    // Redirect instantly to loading page — no API wait
-    const params = new URLSearchParams();
-    params.set("businessName", formData.businessName.trim());
-    if (formData.placeId) params.set("placeId", formData.placeId);
-    if (formData.city) params.set("city", formData.city);
-    if (formData.state) params.set("state", formData.state);
-    if (formData.url) params.set("url", formData.url);
-    if (formData.googleMapsUrl) params.set("googleMapsUrl", formData.googleMapsUrl);
-    if (formData.customDirection) params.set("customDirection", formData.customDirection);
-
-    router.push(`/audits/loading?${params.toString()}`);
-  }
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Nouvel audit de visibilité</h1>
-        <p className="text-muted-foreground mt-1">
-          Recherchez une entreprise et indiquez le service à mesurer sur Google Maps.
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">Informations de l’entreprise</CardTitle>
-          <CardDescription>
-            Search for a business or enter details manually. The more info you provide, the better the audit.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Business Name — Autocomplete */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium leading-none" htmlFor="businessName">
-                Business Name <span className="text-destructive">*</span>
-              </label>
-              <AutocompleteInput
-                id="businessName"
-                placeholder="Start typing a business name..."
-                value={formData.businessName}
-                onChange={(val) => setFormData({ ...formData, businessName: val, placeId: "", googleMapsUrl: "", url: "" })}
-                onSelect={handleBusinessSelect}
-                fetchSuggestions={fetchBusinessSuggestions}
-                icon={<Search className="h-4 w-4" />}
-                required
-                debounceMs={350}
-                minChars={2}
-              />
-              <p className="text-xs text-muted-foreground">
-                Select a result to auto-fill city, state, and website.
-              </p>
-            </div>
-
-            {/* City + State */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium leading-none" htmlFor="city">
-                  City
-                </label>
-                <AutocompleteInput
-                  id="city"
-                  placeholder="Ex. Laval"
-                  value={formData.city}
-                  onChange={(val) => setFormData({ ...formData, city: val })}
-                  onSelect={handleCitySelect}
-                  fetchSuggestions={fetchCitySuggestions}
-                  icon={<MapPin className="h-4 w-4" />}
-                  debounceMs={250}
-                  minChars={2}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium leading-none" htmlFor="state">
-                  State
-                </label>
-                <Input
-                  id="state"
-                  placeholder="Ex. QC"
-                  value={formData.state}
-                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                />
-              </div>
-            </div>
-
-            {/* Website URL */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium leading-none" htmlFor="url">
-                Website URL <span className="text-muted-foreground text-xs">(auto-filled or enter manually)</span>
-              </label>
-              <div className="relative">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="url"
-                  type="url"
-                  placeholder="https://example.com"
-                  className="pl-10"
-                  value={formData.url}
-                  onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                />
-              </div>
-            </div>
-
-            {/* Custom Direction */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium leading-none" htmlFor="customDirection">
-                Mot-clé local à mesurer <span className="text-muted-foreground text-xs">(facultatif)</span>
-              </label>
-              <div className="relative">
-                <MessageSquare className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <textarea
-                  id="customDirection"
-                  placeholder="Ex. entretien ménager résidentiel"
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent pl-10 pr-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={formData.customDirection}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                    setFormData({ ...formData, customDirection: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-
-            {/* Auto-filled preview */}
-            {(formData.city || formData.url) && formData.businessName && (
-              <div className="rounded-lg bg-secondary/30 p-4 text-sm space-y-1">
-                <p className="font-medium text-xs uppercase tracking-wide text-muted-foreground mb-2">
-                  Auto-filled Details
-                </p>
-                {formData.businessName && (
-                  <p><span className="text-muted-foreground">Business:</span> {formData.businessName}</p>
-                )}
-                {formData.city && (
-                  <p><span className="text-muted-foreground">Location:</span> {formData.city}{formData.state ? `, ${formData.state}` : ""}</p>
-                )}
-                {formData.url && (
-                  <p><span className="text-muted-foreground">Website:</span> {formData.url}</p>
-                )}
-              </div>
-            )}
-
-            {/* Submit */}
-            <Button type="submit" className="w-full" size="lg" disabled={!formData.businessName.trim()}>
-              <Search className="mr-2 h-4 w-4" />
-              Générer mon audit
-            </Button>
-
-            <p className="text-xs text-center text-muted-foreground">
-              Rapport commercial en français. Google Places, SerpKite et PageSpeed selon les données disponibles.
-            </p>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
-  );
+const token=()=>crypto.randomUUID();
+export default function NewAuditPage(){
+ const router=useRouter();
+ const [form,setForm]=useState({businessName:"",address:"",placeId:"",url:"",googleMapsUrl:"",customDirection:""});
+ const session=useRef("");
+ const revision=useRef(0);
+ const [pending,setPending]=useState(false);
+ const businessSuggestions=useCallback(async(q:string):Promise<AutocompleteSuggestion[]>=>{
+   try {
+     if(!session.current)session.current=token();
+     const params=new URLSearchParams({q,sessionToken:session.current});
+     const city=cleanLocation(form.address).city;
+     if(city)params.set("city",city);
+     const res=await fetch("/api/autocomplete/business?"+params);
+     if(!res.ok)return [];
+     const data=await res.json();
+     return (data.suggestions||[]).map((s:{name:string;address?:string;placeId?:string;website?:string;googleMapsUrl?:string;city?:string;state?:string})=>({label:s.name,sublabel:s.address,data:{...s}}));
+   } catch{return [];}
+ },[form.address]);
+ const addressSuggestions=useCallback(async(q:string):Promise<AutocompleteSuggestion[]>=>{
+   try{
+     const res=await fetch("/api/autocomplete/address?"+new URLSearchParams({q}));
+     if(!res.ok)return [];
+     const data=await res.json();
+     return (data.suggestions||[]).map((s:{address:string})=>({label:s.address}));
+   }catch{return [];}
+ },[]);
+ function changeBusiness(value:string){
+   revision.current++;setPending(false);
+   setForm(prev=>({...prev,businessName:value,placeId:"",googleMapsUrl:"",url:""}));
+ }
+ function changeAddress(value:string){
+   revision.current++;setPending(false);
+   setForm(prev=>value.trim()===prev.address.trim()?prev:{...prev,address:value,placeId:"",googleMapsUrl:""});
+ }
+ async function selectBusiness(s:AutocompleteSuggestion){
+   const d=s.data||{}, placeId=typeof d.placeId==="string"?d.placeId:"";
+   const rev=++revision.current;
+   setForm(prev=>({...prev,businessName:s.label,placeId,address:typeof d.address==="string"?d.address:[d.city,d.state].filter(Boolean).join(", ")||prev.address,url:typeof d.website==="string"?d.website:"",googleMapsUrl:typeof d.googleMapsUrl==="string"?d.googleMapsUrl:""}));
+   if(!placeId)return;
+   setPending(true);
+   const sessionToken=session.current;session.current="";
+   try{
+     const res=await fetch("/api/autocomplete/place-details?"+new URLSearchParams({placeId,sessionToken}));
+     const data=res.ok?await res.json():null;
+     if(data?.details&&revision.current===rev){
+       const d=data.details;
+       setForm(prev=>({...prev,address:d.address||[d.city,d.state].filter(Boolean).join(", ")||prev.address,url:prev.url||d.website||"",googleMapsUrl:d.googleMapsUrl||prev.googleMapsUrl}));
+     }
+   }catch{}finally{if(revision.current===rev)setPending(false);}
+ }
+ function submit(e:React.FormEvent){
+   e.preventDefault();if(!form.businessName.trim()||pending)return;
+   const params=new URLSearchParams();
+   for(const [key,val] of Object.entries(form))if(val.trim())params.set(key,val.trim());
+   router.push("/audits/loading?"+params);
+ }
+ return <div className="mx-auto max-w-2xl space-y-6">
+   <div><h1 className="text-3xl font-bold tracking-tight">Nouvel audit de visibilité</h1><p className="mt-1 text-muted-foreground">Recherchez une entreprise ou renseignez ses informations manuellement.</p></div>
+   <Card><CardHeader><CardTitle>Informations de l’entreprise</CardTitle><CardDescription>Le nom et l’adresse permettent d’identifier la bonne fiche Google.</CardDescription></CardHeader><CardContent>
+   <form onSubmit={submit} className="space-y-6">
+    <div className="space-y-2"><label htmlFor="businessName" className="text-sm font-medium">Nom de l’entreprise *</label><AutocompleteInput id="businessName" value={form.businessName} onChange={changeBusiness} onSelect={selectBusiness} fetchSuggestions={businessSuggestions} placeholder="Ex. Constantine Entretien Ménager" icon={<Search className="h-4 w-4"/>} required debounceMs={350}/><p className="text-xs text-muted-foreground">Sélectionnez une suggestion pour remplir automatiquement l’adresse et le site web.</p></div>
+    <div className="space-y-2"><label htmlFor="address" className="text-sm font-medium">Adresse</label><AutocompleteInput id="address" value={form.address} onChange={changeAddress} fetchSuggestions={addressSuggestions} placeholder="Ex. 879 Rue Sumer, Laval, QC H7R 6G9, Canada" icon={<MapPin className="h-4 w-4"/>} debounceMs={350} minChars={3}/><p className="text-xs text-muted-foreground">Choisissez une adresse Google ou saisissez l’adresse complète. Pour une entreprise sans adresse publique, indiquez sa ville ou sa zone desservie.</p></div>
+    <div className="space-y-2"><label htmlFor="url" className="text-sm font-medium">Site web <span className="text-muted-foreground">(facultatif)</span></label><div className="relative"><Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/><Input id="url" type="url" className="pl-10" placeholder="https://exemple.ca" value={form.url} onChange={e=>setForm(p=>({...p,url:e.target.value}))}/></div></div>
+    <div className="space-y-2"><label htmlFor="customDirection" className="text-sm font-medium">Mot-clé local à mesurer <span className="text-muted-foreground">(facultatif)</span></label><Input id="customDirection" placeholder="Ex. entretien ménager résidentiel" value={form.customDirection} onChange={e=>setForm(p=>({...p,customDirection:e.target.value}))}/></div>
+    <Button type="submit" className="w-full" size="lg" disabled={!form.businessName.trim()||pending}>{pending?"Récupération de la fiche…":"Générer mon audit"}</Button>
+    <p className="text-center text-xs text-muted-foreground">Rapport en français · Google Places, SerpKite et PageSpeed</p>
+   </form></CardContent></Card>
+ </div>;
 }

@@ -12,6 +12,7 @@ import { unavailable, type UnavailableResult } from "./unavailable";
 
 interface GoogleMapsSearchParams {
   placeId?: string;
+  address?: string;
   businessName: string;
   city?: string;
   state?: string;
@@ -179,7 +180,7 @@ export async function lookupGoogleMaps(
   }
 
   try {
-    const query = `${params.businessName}${params.city ? ` ${params.city}` : ""}${params.state ? ` ${params.state}` : ""}`;
+    const query = [params.businessName,params.address || [params.city,params.state].filter(Boolean).join(", ")].filter(Boolean).join(" ");
     const searchResult = params.placeId ? {place_id:params.placeId,name:params.businessName} : await textSearch(query, apiKey);
     if (!searchResult) {
       return unavailable(

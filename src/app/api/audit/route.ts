@@ -12,6 +12,7 @@ export const maxDuration = 300;
 const auditRequestSchema = z.object({
   businessName: z.string().trim().min(1, "Business name is required"),
   placeId: z.string().trim().min(1).max(300).optional(),
+  address: z.string().trim().max(300).optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   url: z.string().url().optional().or(z.literal("")),
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const input = {...parsed.data,...cleanLocation(parsed.data.city,parsed.data.state)};
+    const input = {...parsed.data,...cleanLocation(parsed.data.address || parsed.data.city,parsed.data.state)};
     if (input.url) {
       try {
         await assertPublicHttpUrl(input.url);
@@ -63,6 +64,7 @@ export async function POST(request: NextRequest) {
       input: {
         businessName: input.businessName,
         placeId: input.placeId,
+        address: input.address || undefined,
         city: input.city,
         state: input.state,
         url: input.url || undefined,
@@ -88,6 +90,7 @@ export async function POST(request: NextRequest) {
         const { result, scores } = await runGrowAudit({
           businessName: input.businessName,
         placeId: input.placeId,
+        address: input.address || undefined,
           city: input.city,
           state: input.state,
           url: input.url || undefined,

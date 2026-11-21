@@ -85,7 +85,7 @@ export default async function AuditsPage() {
                         <div className="flex items-center gap-4 text-sm text-slate-500">
                           <span className="flex items-center gap-1">
                             <MapPin className="h-4 w-4" />
-                            {input.city ? `${input.city}, ${input.state}` : "Location N/A"}
+                            {input.address || [input.city, input.state].filter(Boolean).join(", ") || "Adresse non renseignée"}
                           </span>
                           <span className="flex items-center gap-1">
                             <Calendar className="h-4 w-4" />

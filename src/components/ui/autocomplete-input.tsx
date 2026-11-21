@@ -101,6 +101,9 @@ export function AutocompleteInput({
 
   // Handle suggestion selection
   function handleSelect(suggestion: AutocompleteSuggestion) {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    abortControllerRef.current?.abort();
+    setIsLoading(false);
     onChange(suggestion.label);
     setSuggestions([]);
     setIsOpen(false);
@@ -127,8 +130,8 @@ export function AutocompleteInput({
         );
         break;
       case "Enter":
-        e.preventDefault();
         if (activeIndex >= 0 && activeIndex < suggestions.length) {
+          e.preventDefault();
           handleSelect(suggestions[activeIndex]);
         }
         break;

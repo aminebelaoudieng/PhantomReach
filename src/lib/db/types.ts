@@ -46,6 +46,7 @@ export interface Report {
 }
 
 export interface AuditInput {
+  address?: string;
   placeId?: string;
   businessName: string;
   city?: string;
