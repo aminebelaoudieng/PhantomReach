@@ -33,6 +33,7 @@ export async function GET(
       ? { ...report, result: sanitizeAuditResultContent(report.result as any) }
       : report;
     const grow = report.type === 'audit' ? (report.result as AuditResult).grow : undefined;
+    if(grow && !grow.profileFound) return NextResponse.json({error:"Fiche Google non identifiée. Relancez l’audit."},{status:422});
     const pdfBuffer = grow ? await generateGrowPDF(grow) : await generateReportPDF(exportReport);
 
     const businessName = (report.input as any).businessName || "Business";

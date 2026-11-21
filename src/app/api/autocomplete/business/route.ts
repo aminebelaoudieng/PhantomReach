@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cleanLocation } from "@/lib/grow/location";
 import { getProviderSecret } from "@/lib/config/provider-config";
 
 /**
@@ -85,8 +86,8 @@ async function googlePlacesAutocomplete(
     input,
     types: "establishment",
     key: apiKey,
-    language: "en",
-    components: "country:us",
+    language: "fr",
+    components: "country:" + (process.env.GROW_COUNTRY || "ca"),
   });
 
   // Session tokens group autocomplete + place details into one billing session
@@ -136,19 +137,7 @@ async function googlePlacesAutocomplete(
   );
 }
 
-function parseGoogleDescription(desc: string): { city?: string; state?: string } {
-  if (!desc) return {};
-  // "Seattle, WA, USA" or "Bellevue, WA, United States"
-  const parts = desc.split(",").map((p) => p.trim());
-  if (parts.length >= 2) {
-    const stateMatch = parts[1].match(/^([A-Z]{2})/);
-    return {
-      city: parts[0] || undefined,
-      state: stateMatch ? stateMatch[1] : undefined,
-    };
-  }
-  return { city: parts[0] || undefined };
-}
+function parseGoogleDescription(desc:string):{city?:string;state?:string}{return cleanLocation(desc);}
 
 function humanizeTypes(types?: string[]): string | undefined {
   if (!types || types.length === 0) return undefined;
@@ -209,18 +198,6 @@ async function serpApiAutocomplete(
     .filter((s: BusinessSuggestion) => s.name);
 }
 
-function parseAddress(address: string): { city?: string; state?: string } {
-  if (!address) return {};
-  const parts = address.split(",").map((p) => p.trim());
-  if (parts.length >= 3) {
-    const stateMatch = parts[parts.length - 1].match(/^([A-Z]{2})/);
-    return { city: parts[parts.length - 2] || undefined, state: stateMatch ? stateMatch[1] : undefined };
-  }
-  if (parts.length === 2) {
-    const stateMatch = parts[1].match(/^([A-Z]{2})/);
-    return { city: parts[0] || undefined, state: stateMatch ? stateMatch[1] : undefined };
-  }
-  return {};
-}
+function parseAddress(address:string):{city?:string;state?:string}{return cleanLocation(address);}
 
 // ─── Mock Data ──────────────────────────────────────────────────────────────

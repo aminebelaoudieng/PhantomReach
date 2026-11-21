@@ -11,6 +11,7 @@ import { getProviderSecret } from "@/lib/config/provider-config";
 import { unavailable, type UnavailableResult } from "./unavailable";
 
 interface GoogleMapsSearchParams {
+  placeId?: string;
   businessName: string;
   city?: string;
   state?: string;
@@ -46,7 +47,7 @@ async function textSearch(
   const params = new URLSearchParams({
     query,
     key: apiKey,
-    language: "en",
+    language: "fr",
   });
 
   const res = await fetch(
@@ -128,7 +129,7 @@ async function placeDetails(
     type: category,
     category,
     rating: r.rating || undefined,
-    reviews: r.user_ratings_total || undefined,
+    reviews: r.user_ratings_total ?? undefined,
     operating_hours: Object.keys(operating_hours).length > 0 ? operating_hours : undefined,
     photos_count: r.photos?.length || 0,
     gps_coordinates: r.geometry?.location
@@ -179,7 +180,7 @@ export async function lookupGoogleMaps(
 
   try {
     const query = `${params.businessName}${params.city ? ` ${params.city}` : ""}${params.state ? ` ${params.state}` : ""}`;
-    const searchResult = await textSearch(query, apiKey);
+    const searchResult = params.placeId ? {place_id:params.placeId,name:params.businessName} : await textSearch(query, apiKey);
     if (!searchResult) {
       return unavailable(
         "google_maps",

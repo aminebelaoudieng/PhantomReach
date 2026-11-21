@@ -2,6 +2,7 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireRouteUser } from "@/lib/auth/route";
+import { cleanLocation } from "@/lib/grow/location";
 import { runGrowAudit } from "@/lib/grow/collect";
 import { assertPublicHttpUrl } from "@/lib/security/public-http-url";
 
@@ -9,7 +10,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const auditRequestSchema = z.object({
-  businessName: z.string().min(1, "Business name is required"),
+  businessName: z.string().trim().min(1, "Business name is required"),
+  placeId: z.string().trim().min(1).max(300).optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   url: z.string().url().optional().or(z.literal("")),
@@ -29,7 +31,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const input = parsed.data;
+    const input = {...parsed.data,...cleanLocation(parsed.data.city,parsed.data.state)};
     if (input.url) {
       try {
         await assertPublicHttpUrl(input.url);
@@ -60,6 +62,7 @@ export async function POST(request: NextRequest) {
       type: "audit",
       input: {
         businessName: input.businessName,
+        placeId: input.placeId,
         city: input.city,
         state: input.state,
         url: input.url || undefined,
@@ -84,6 +87,7 @@ export async function POST(request: NextRequest) {
       try {
         const { result, scores } = await runGrowAudit({
           businessName: input.businessName,
+        placeId: input.placeId,
           city: input.city,
           state: input.state,
           url: input.url || undefined,

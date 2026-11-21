@@ -1,3 +1,4 @@
+import { cleanLocation } from "./location";
 import type { AuditInput, AuditResult, ReportScores } from "@/lib/db/types";
 import { getProviderSecret } from "@/lib/config/provider-config";
 import { fetchGoogleReviews } from "@/lib/agents/tools/reviews";
@@ -18,6 +19,7 @@ const safeName=(s:unknown)=>typeof s==="string"?s.trim().slice(0,150):"";
 const grade=(n:number|null)=>n===null?"N/D":n>=90?"A":n>=80?"B":n>=70?"C":n>=60?"D":"F";
 
 export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult;scores:ReportScores}> {
+  input={...input,...cleanLocation(input.city,input.state)};
   const key=(await getProviderSecret("serpkite_api_key"))?.trim();
   const country=(process.env.GROW_COUNTRY||"ca").toLowerCase();
   const location=[input.city,input.state,country==="ca"?"Canada":country==="us"?"United States":""].filter(Boolean).join(", ");
@@ -32,35 +34,45 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
     creditsLeft-=maxCost;
     try {
       const res=await fetch("https://api.serpkite.com/v1/"+endpoint,{method:"POST",headers:{Authorization:"Bearer "+key,"Content-Type":"application/json"},body:JSON.stringify({country,...(endpoint==="chatgpt"?{}:{language:"fr"}),...params}),signal:AbortSignal.timeout(endpoint==="maps"?12000:40000),cache:"no-store"});
-      if(res.status===402||res.status===401){exhausted=true;return null;}
-      if(!res.ok)return null;
+      if(!res.ok){console.warn("[grow/serpkite]",endpoint,"http",res.status,"request",res.headers.get("x-request-id")||"n/a");if([401,402,403,429].includes(res.status))exhausted=true;return null;}
       const data=await res.json() as Envelope;
+      console.info("[grow/serpkite]",endpoint,"quality",data?.meta?.parse_quality??"unknown","results",Array.isArray(data?.results)?data.results.length:"n/a","request",res.headers.get("x-request-id")||"n/a");
       return data&&typeof data==="object"?data:null;
-    } catch {return null;}
+    } catch(error){console.warn("[grow/serpkite]",endpoint,"failed",error instanceof Error?error.name:"unknown");return null;}
   }
   const searchName=input.businessName.trim();
-  let targetId:string|undefined;
-  if(input.googleMapsUrl)try{const u=new URL(input.googleMapsUrl);targetId=u.searchParams.get("query_place_id")||u.searchParams.get("place_id")||undefined;}catch{}
+  let targetId:string|undefined=input.placeId;
+  if(input.googleMapsUrl)try{const u=new URL(input.googleMapsUrl);targetId=targetId||u.searchParams.get("query_place_id")||u.searchParams.get("place_id")||undefined;}catch{}
   if(key){
-    const match=await call("maps",{q:[searchName,input.city,input.state].filter(Boolean).join(" "),location});
-    const candidates=(match?.results??[]) as Place[];
-    const matches=candidates.filter(c=>targetId?c.place_id===targetId:normalize(c.title||"")===normalize(searchName)&&(!input.city||normalize(c.address||"").includes(normalize(input.city))));
-    if(matches.length===1&&idFor(matches[0])){
-      p=matches[0]; profileFound=true; source="SerpKite / Google Maps";
-      const details=await call("place",idFor(p)!);
-      const item=(details?.results as Place[]|undefined)?.[0];
-      if(item&&same(item,p)){p={...p,...item};detailed=details?.meta?.parse_quality==="ok";}
-    }else notes.push("Fiche non identifiée sans ambiguïté par SerpKite.");
+    // Prefer the selected Google identifier. This avoids guessing an exact name or location.
+    if(targetId){
+      const d=await call("place",{place_id:targetId});
+      const item=(d?.results as Place[]|undefined)?.[0];
+      if(item?.title&&item.place_id===targetId){p=item;profileFound=true;source="SerpKite / Google Maps";detailed=d?.meta?.parse_quality==="ok";}
+    }
+    if(!profileFound){
+      const match=await call("maps",{q:[searchName,input.city,input.state].filter(Boolean).join(" "),location});
+      const candidates=Array.isArray(match?.results)?match.results as Place[]:[];
+      const matches=candidates.filter(c=>targetId?c.place_id===targetId:normalize(c.title||"")===normalize(searchName)&&(!input.city||normalize(c.address||"").includes(normalize(input.city))));
+      if(matches.length===1&&idFor(matches[0])){
+        p=matches[0]; profileFound=true; source="SerpKite / Google Maps";
+        const details=await call("place",idFor(p)!);
+        const item=(details?.results as Place[]|undefined)?.[0];
+        if(item&&same(item,p)){p={...p,...item};detailed=details?.meta?.parse_quality==="ok";}
+      }else{console.warn("[grow] SerpKite target not matched; candidates:",candidates.length,"matches:",matches.length);notes.push("Fiche non identifiée sans ambiguïté par la recherche SerpKite.");}
+    }
   } else notes.push("SerpKite non configuré : grille et tests IA non mesurés.");
   if(!profileFound){
-    const fallback=await lookupGoogleMaps(input);
-    if("raw" in fallback&&normalize(fallback.raw.title)===normalize(searchName)&&(!targetId||fallback.raw.place_id===targetId)&&(!input.city||normalize(fallback.raw.address||"").includes(normalize(input.city)))){
+    const fallback=await lookupGoogleMaps({...input,placeId:targetId});
+    if("raw" in fallback&&(targetId?fallback.raw.place_id===targetId:normalize(fallback.raw.title)===normalize(searchName)&&(!input.city||normalize(fallback.raw.address||"").includes(normalize(input.city))))){
       const r=fallback.raw;
       p={title:r.title,place_id:r.place_id,address:r.address,phone_number:r.phone,website:r.website,type:r.category,rating:r.rating,rating_count:r.reviews,opening_hours:r.operating_hours,latitude:r.gps_coordinates?.latitude,longitude:r.gps_coordinates?.longitude};
       profileFound=true;source="Google Places";
-    }
+      if(key&&p.place_id){const d=await call("place",{place_id:p.place_id});const item=(d?.results as Place[]|undefined)?.[0];if(item&&same(item,p)){p={...p,...item};detailed=d?.meta?.parse_quality==="ok";source="Google Places + SerpKite";}}
+    } else console.warn("[grow] Google Places fallback failed or did not match target");
   }
-  if(!profileFound)notes.push("Fiche non confirmée : vérifier le nom et la ville avant d'interpréter le rapport.");
+  if(!profileFound)throw new Error("Fiche Google non identifiée. Sélectionnez l'entreprise dans les suggestions et vérifiez la ville.");
+  console.info("[grow] Profile matched",source,"coordinates",number(p.latitude)!==null&&number(p.longitude)!==null);
   const keyword=(input.customDirection?.trim()||p.type||"").slice(0,100);
   const fields: {title:string;value?:string;action:string}[]=[
     {title:"Nom commercial",value:p.title,action:"Vérifier le nom commercial exact."},
@@ -70,7 +82,7 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
     {title:"Catégorie principale",value:p.type,action:"Choisir la catégorie qui décrit précisément vos services."},
     {title:"Catégories secondaires",value:p.types?.filter(x=>x!==p.type).join(", "),action:"Vérifier les autres catégories pertinentes."},
     {title:"Horaires",value:p.opening_hours&&Object.keys(p.opening_hours).length?"Renseignés":undefined,action:"Vérifier les horaires et les jours fériés."},
-    {title:"Description",value:source.startsWith("SerpKite")?p.description:undefined,action:"Vérifier et compléter la description de la fiche."},
+    {title:"Description",value:source.includes("SerpKite")?p.description:undefined,action:"Vérifier et compléter la description de la fiche."},
     {title:"Photos visibles",value:p.photos?.length?String(p.photos.length)+" observées":undefined,action:"Ajouter des photos récentes de vos réalisations."},
     {title:"Publications",action:"Vérifier les publications dans votre fiche."},
     {title:"Services et attributs",action:"Vérifier les services et attributs directement sur la fiche."}
@@ -121,6 +133,7 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
   if(number(p.rating_count)!==null&&competitors.some(c=>c.reviews!==null&&c.reviews>p.rating_count!))priorities.push({title:"Développer votre réputation",detail:"Inviter tous vos clients à partager un avis honnête après une prestation, sans sélectionner seulement les clients satisfaits."});
   if(reviewSample.replied!==null&&reviewSample.replied<reviewSample.count)priorities.push({title:"Répondre aux avis observés",detail:"Répondre de manière personnalisée et professionnelle aux avis sans réponse."});
   const stats=summarizeGrid(grid);
+  console.info("[grow] coverage",coverage,"grid",stats.measured,"reviews",reviewSample.count,"competitors",competitors.length,"ai",ai.filter(x=>x.state!=="unknown").length);
   if(stats.measured&&stats.top3<stats.measured/2)priorities.push({title:"Renforcer la visibilité locale",detail:"Vérifier les catégories, services et zones desservies, puis répéter la même mesure géographique."});
   if(performance!==null&&performance<70)priorities.push({title:"Améliorer le site mobile",detail:"Réduire le temps de chargement et faciliter la prise de contact."});
   if(ai.some(x=>x.state==="absent"))priorities.push({title:"Renforcer les informations en ligne",detail:"Présenter les services et secteurs sur le site et les annuaires pertinents."});

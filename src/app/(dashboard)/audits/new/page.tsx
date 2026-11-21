@@ -25,6 +25,7 @@ export default function NewAuditPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
     businessName: "",
+    placeId: "",
     city: "",
     state: "",
     url: "",
@@ -129,6 +130,7 @@ export default function NewAuditPage() {
     setFormData((prev) => ({
       ...prev,
       businessName: suggestion.label,
+      placeId: placeId || "",
       city: (d.city as string) || prev.city,
       state: (d.state as string) || prev.state,
       url: (d.website as string) || prev.url,
@@ -183,6 +185,7 @@ export default function NewAuditPage() {
     // Redirect instantly to loading page — no API wait
     const params = new URLSearchParams();
     params.set("businessName", formData.businessName.trim());
+    if (formData.placeId) params.set("placeId", formData.placeId);
     if (formData.city) params.set("city", formData.city);
     if (formData.state) params.set("state", formData.state);
     if (formData.url) params.set("url", formData.url);
@@ -219,7 +222,7 @@ export default function NewAuditPage() {
                 id="businessName"
                 placeholder="Start typing a business name..."
                 value={formData.businessName}
-                onChange={(val) => setFormData({ ...formData, businessName: val })}
+                onChange={(val) => setFormData({ ...formData, businessName: val, placeId: "", googleMapsUrl: "", url: "" })}
                 onSelect={handleBusinessSelect}
                 fetchSuggestions={fetchBusinessSuggestions}
                 icon={<Search className="h-4 w-4" />}
@@ -240,7 +243,7 @@ export default function NewAuditPage() {
                 </label>
                 <AutocompleteInput
                   id="city"
-                  placeholder="e.g., Seattle"
+                  placeholder="Ex. Laval"
                   value={formData.city}
                   onChange={(val) => setFormData({ ...formData, city: val })}
                   onSelect={handleCitySelect}
@@ -256,7 +259,7 @@ export default function NewAuditPage() {
                 </label>
                 <Input
                   id="state"
-                  placeholder="e.g., WA"
+                  placeholder="Ex. QC"
                   value={formData.state}
                   onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                 />

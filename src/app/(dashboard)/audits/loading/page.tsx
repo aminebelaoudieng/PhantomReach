@@ -23,6 +23,7 @@ function AuditLoadingContent() {
   const router = useRouter();
 
   const businessName = searchParams.get("businessName") || "Business";
+  const placeId = searchParams.get("placeId") || undefined;
   const city = searchParams.get("city") || undefined;
   const state = searchParams.get("state") || undefined;
   const url = searchParams.get("url") || undefined;
@@ -45,6 +46,7 @@ function AuditLoadingContent() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             businessName,
+            placeId,
             city,
             state,
             url,
@@ -77,7 +79,7 @@ function AuditLoadingContent() {
     }
 
     createAudit();
-  }, [businessName, city, state, url, googleMapsUrl, customDirection, router]);
+  }, [businessName, placeId, city, state, url, googleMapsUrl, customDirection, router]);
 
   // ── Handle completion ─────────────────────────────────────────────
   const handleComplete = useCallback(

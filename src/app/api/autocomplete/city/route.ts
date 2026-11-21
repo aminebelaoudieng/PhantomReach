@@ -19,6 +19,7 @@ interface CitySuggestion {
 
 // US state name → code mapping
 const STATE_CODES: Record<string, string> = {
+  "québec":"QC","quebec":"QC","ontario":"ON","alberta":"AB","british columbia":"BC","colombie-britannique":"BC","manitoba":"MB","saskatchewan":"SK","new brunswick":"NB","nouveau-brunswick":"NB","nova scotia":"NS","nouvelle-écosse":"NS","newfoundland and labrador":"NL","prince edward island":"PE","yukon":"YT",
   "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR",
   "california": "CA", "colorado": "CO", "connecticut": "CT", "delaware": "DE",
   "district of columbia": "DC", "florida": "FL", "georgia": "GA", "hawaii": "HI",
@@ -90,8 +91,8 @@ async function googlePlacesCityAutocomplete(
     input: query,
     types: "(cities)",
     key: apiKey,
-    language: "en",
-    components: "country:us",
+    language: "fr",
+    components: "country:" + (process.env.GROW_COUNTRY || "ca"),
   });
 
   if (sessionToken) {
@@ -194,7 +195,7 @@ async function fetchFromSerpApi(
     q: `${query} city`,
     api_key: apiKey,
     hl: "en",
-    gl: "us",
+    gl: process.env.GROW_COUNTRY || "ca",
   });
 
   const response = await fetch(
@@ -281,7 +282,8 @@ function parseCitySuggestion(raw: string): CitySuggestion | null {
 function getFallbackSuggestions(query: string): CitySuggestion[] {
   const q = query.toLowerCase();
 
-  const cities: CitySuggestion[] = [
+  const canadian: CitySuggestion[] = ["Laval","Montréal","Québec","Longueuil","Gatineau","Sherbrooke","Trois-Rivières","Terrebonne","Brossard","Repentigny"].map(city=>({city,state:"Québec",stateCode:"QC",label:city+", QC"}));
+  const cities: CitySuggestion[] = (process.env.GROW_COUNTRY || "ca")==="ca" ? canadian : [
     { city: "New York", state: "New York", stateCode: "NY", label: "New York, NY" },
     { city: "Los Angeles", state: "California", stateCode: "CA", label: "Los Angeles, CA" },
     { city: "Chicago", state: "Illinois", stateCode: "IL", label: "Chicago, IL" },
