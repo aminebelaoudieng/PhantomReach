@@ -6,6 +6,7 @@ import { lookupGoogleMaps } from "@/lib/agents/tools/google-maps";
 import { runPageSpeedAudit } from "@/lib/agents/tools/pagespeed";
 import { assertPublicHttpUrl } from "@/lib/security/public-http-url";
 import { generateGrowNarrative } from "./narrative";
+import { auditOnPage,type OnPageAudit } from "./onpage";
 import { websiteDetails,type WebsiteDetails } from "./website-details";
 import { reviewWords } from "./premium";
 import { scoreChecks, summarizeGrid, type GrowAudit, type Point, type Competitor, type Check, type AIAnswer } from "./model";
@@ -131,9 +132,9 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
     return {engine,excerpt:typeof e?.text==="string"?e.text.replace(/\s+/g," ").slice(0,550):undefined,state:e?.text&&typeof mention?.mentioned==="boolean"?(mention.mentioned?"mentioned":"absent"):"unknown",sources:[...new Set((e?.sources??[]).filter(s=>s.cited&&s.domain).map(s=>s.domain!))].slice(0,3),competitors:(e?.mentions??[]).filter(m=>m.mentioned&&competitors.some(c=>normalize(c.name)===normalize(m.term||""))).map(m=>safeName(m.term)).slice(0,3)};
   }));
   const websiteUrl=input.url||p.website||null;
-  let performance:number|null=null,seo:number|null=null,details:WebsiteDetails|undefined;
-  if(websiteUrl)try{await assertPublicHttpUrl(websiteUrl);const psi=await runPageSpeedAudit({url:websiteUrl});if("analysis" in psi){performance=psi.analysis.performance_score;seo=psi.analysis.seo_score;details=websiteDetails(psi.rawLighthouse);}}catch{}
-  const website:GrowAudit["website"]={url:websiteUrl,performance,seo,details,state:p.website?"linked":profileFound&&detailed?"not_linked":"unknown"};
+  let performance:number|null=null,seo:number|null=null,details:WebsiteDetails|undefined,onpage:OnPageAudit|undefined;
+  if(websiteUrl)try{await assertPublicHttpUrl(websiteUrl);const [psi,html]=await Promise.all([runPageSpeedAudit({url:websiteUrl}),auditOnPage(websiteUrl)]);onpage=html;if("analysis" in psi){performance=psi.analysis.performance_score;seo=psi.analysis.seo_score;details=websiteDetails(psi.rawLighthouse);}}catch{}
+  const website:GrowAudit["website"]={url:websiteUrl,performance,seo,details,onpage,state:p.website?"linked":profileFound&&detailed?"not_linked":"unknown"};
   const priorities:GrowAudit["priorities"]=[];
   if(website.state==="not_linked")priorities.push({title:"Relier un site à votre fiche",detail:"Présenter vos prestations et proposer une demande de soumission simple."});
   if(number(p.rating_count)!==null&&competitors.some(c=>c.reviews!==null&&c.reviews>p.rating_count!))priorities.push({title:"Développer votre réputation",detail:"Inviter tous vos clients à partager un avis honnête après une prestation, sans sélectionner seulement les clients satisfaits."});
@@ -141,6 +142,7 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
   const stats=summarizeGrid(grid);
   console.info("[grow] coverage",coverage,"grid",stats.measured,"reviews",reviewSample.count,"competitors",competitors.length,"ai",ai.filter(x=>x.state!=="unknown").length);
   if(stats.measured&&stats.top3<stats.measured/2)priorities.push({title:"Renforcer la visibilité locale",detail:"Vérifier les catégories, services et zones desservies, puis répéter la même mesure géographique."});
+  if(onpage?.state==="measured"&&onpage.checks.some(c=>c.state==="improve"))priorities.push({title:"Améliorer le référencement du site",detail:"Corriger les problèmes confirmés dans les balises et contenus analysés."});
   if(performance!==null&&performance<70)priorities.push({title:"Améliorer le site mobile",detail:"Réduire le temps de chargement et faciliter la prise de contact."});
   if(ai.some(x=>x.state==="absent"))priorities.push({title:"Renforcer les informations en ligne",detail:"Présenter les services et secteurs sur le site et les annuaires pertinents."});
   if(!priorities.length)priorities.push({title:"Confirmer et suivre la fiche",detail:profileFound?"Vérifier les champs non observables et refaire les mesures régulièrement.":"Confirmer l'identité de la fiche et relancer les mesures."});
