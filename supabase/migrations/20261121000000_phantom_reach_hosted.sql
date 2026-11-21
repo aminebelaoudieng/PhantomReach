@@ -99,6 +99,7 @@ create index if not exists idx_reports_user_id on public.reports(user_id);
 create index if not exists idx_reports_created_at on public.reports(created_at desc);
 create index if not exists idx_usage_user_action_created on public.api_usage(user_id, action, created_at desc);
 create index if not exists idx_widget_leads_user_id on public.widget_leads(user_id);
+create index if not exists idx_widget_leads_report_id on public.widget_leads(report_id);
 
 alter table public.users enable row level security;
 alter table public.reports enable row level security;
