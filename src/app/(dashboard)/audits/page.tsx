@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Calendar, ArrowRight, Activity, MapPin } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireCurrentUser } from "@/lib/auth/server";
-import type { AuditInput, ReportScores } from "@/lib/db/types";
+import type { AuditInput, AuditResult, ReportScores } from "@/lib/db/types";
 import { GradeBadge } from "@/components/reports/grade-badge";
 import { reportListActionLabel, reportStatusBadgeClass } from "@/lib/reports/report-list-display";
 
@@ -56,6 +56,7 @@ export default async function AuditsPage() {
           {auditReports.map((report) => {
             const input = report.input as AuditInput;
             const scores = report.scores as ReportScores | undefined;
+            const grow=(report.result as AuditResult|undefined)?.grow;
             const isCompleted = report.status === "completed";
             const isFailed = report.status === "failed";
 
@@ -64,7 +65,7 @@ export default async function AuditsPage() {
                 <CardContent className="p-6">
                   <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
                     <div className="flex gap-6 items-center flex-1">
-                      {scores ? (
+                      {grow ? (<div className="h-16 w-16 rounded-xl bg-emerald-50 flex flex-col items-center justify-center border border-emerald-100 text-xs text-emerald-900 font-semibold">Grow<br/>Audit</div>) : scores ? (
                         <GradeBadge grade={scores.overall_grade} score={scores.overall_grade==="N/D"?undefined:scores.overall_score} size="md" />
                       ) : (
                         <div className="h-16 w-16 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200">

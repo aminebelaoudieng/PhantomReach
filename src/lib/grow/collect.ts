@@ -143,6 +143,9 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
   if(!priorities.length)priorities.push({title:"Confirmer et suivre la fiche",detail:profileFound?"Vérifier les champs non observables et refaire les mesures régulièrement.":"Confirmer l'identité de la fiche et relancer les mesures."});
   notes.push("Publications et historique complet des avis non disponibles avec cette source.");
   if(grid.some(x=>x.state==="unknown"))notes.push("Certains points n'ont pas été mesurés.");
-  const grow:GrowAudit={version:2,name:p.title||searchName,location,date:new Date().toISOString().slice(0,10),keyword,source,profileFound,rating:number(p.rating),reviewCount:number(p.rating_count),checks,score,coverage,reviewSample,competitors,grid,spacingKm,ai,website,notes,priorities:priorities.slice(0,3)};
+  const configuredPrice=Number(process.env.GROW_OFFER_MONTHLY_CAD);
+  const bookingUrl=process.env.GROW_BOOKING_URL?.trim();
+  const commercial={monthlySearches:input.monthlySearches,jobValueCad:input.jobValueCad,monthlyPriceCad:input.monthlyPriceCad||(Number.isFinite(configuredPrice)&&configuredPrice>0?configuredPrice:undefined),bookingUrl:bookingUrl&&/^https:\/\//i.test(bookingUrl)?bookingUrl:undefined};
+  const grow:GrowAudit={version:2,commercial,name:p.title||searchName,location,date:new Date().toISOString().slice(0,10),keyword,source,profileFound,rating:number(p.rating),reviewCount:number(p.rating_count),checks,score,coverage,reviewSample,competitors,grid,spacingKm,ai,website,notes,priorities:priorities.slice(0,3)};
   return {result:{executive_summary:"Audit de visibilité locale",recommendations:[],grow},scores:{overall_grade:grade(score),overall_score:score??0,module_grades:{gbp_health:grade(score)}}};
 }

@@ -24,6 +24,9 @@ function AuditLoadingContent() {
 
   const businessName = searchParams.get("businessName") || "Business";
   const placeId = searchParams.get("placeId") || undefined;
+  const monthlySearches = Number(searchParams.get("monthlySearches")) || undefined;
+  const jobValueCad = Number(searchParams.get("jobValueCad")) || undefined;
+  const monthlyPriceCad = Number(searchParams.get("monthlyPriceCad")) || undefined;
   const address = searchParams.get("address") || undefined;
   const city = searchParams.get("city") || undefined;
   const state = searchParams.get("state") || undefined;
@@ -49,6 +52,9 @@ function AuditLoadingContent() {
             businessName,
             placeId,
             address,
+            monthlySearches,
+            jobValueCad,
+            monthlyPriceCad,
             city,
             state,
             url,
@@ -81,7 +87,7 @@ function AuditLoadingContent() {
     }
 
     createAudit();
-  }, [businessName, placeId, address, city, state, url, googleMapsUrl, customDirection, router]);
+  }, [businessName, placeId, address, monthlySearches, jobValueCad, monthlyPriceCad, city, state, url, googleMapsUrl, customDirection, router]);
 
   // ── Handle completion ─────────────────────────────────────────────
   const handleComplete = useCallback(

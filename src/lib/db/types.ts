@@ -46,6 +46,9 @@ export interface Report {
 }
 
 export interface AuditInput {
+  monthlySearches?: number;
+  jobValueCad?: number;
+  monthlyPriceCad?: number;
   address?: string;
   placeId?: string;
   businessName: string;

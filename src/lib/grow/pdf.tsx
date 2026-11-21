@@ -1,43 +1,46 @@
 import React from "react";
-import { Document, Page, Text, View, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
-import { sections, rankColor, rankLabel, type GrowAudit } from "./model";
-const green="#114537", ink="#142b25", muted="#54665e";
-const styles=StyleSheet.create({
-  page:{padding:38,fontFamily:"Helvetica",fontSize:10,color:ink,backgroundColor:"#ffffff"},
-  header:{flexDirection:"row",justifyContent:"space-between",borderBottom:"1 solid #dce7e0",paddingBottom:12,marginBottom:26},
-  brand:{fontSize:12,fontWeight:"bold",color:green,letterSpacing:1},
-  muted:{color:muted,fontSize:9,lineHeight:1.4},
-  eyebrow:{fontSize:9,letterSpacing:1.8,color:green,fontWeight:"bold",marginBottom:10},
-  title:{fontSize:28,fontWeight:"bold",lineHeight:1.14,marginBottom:12,color:green},
-  intro:{fontSize:11,lineHeight:1.5,marginBottom:16,color:muted},
-  metrics:{flexDirection:"row",gap:8,marginBottom:16},
-  metric:{flex:1,padding:12,backgroundColor:"#edf5f0",borderRadius:7},
-  metricValue:{fontSize:17,fontWeight:"bold",color:green,marginBottom:5},
-  row:{paddingVertical:8,borderBottom:"1 solid #e6eee9",flexDirection:"row",gap:10},
-  label:{width:"32%",fontWeight:"bold",fontSize:10},
-  rest:{flex:1},value:{fontSize:10,lineHeight:1.35},detail:{fontSize:8.5,color:muted,marginTop:3,lineHeight:1.35},
-  grid:{alignSelf:"center",marginVertical:10,gap:6},gridRow:{flexDirection:"row",gap:6},dot:{width:41,height:41,borderRadius:21,justifyContent:"center",alignItems:"center"},dotText:{color:"white",fontWeight:"bold",fontSize:12},
-  barRow:{flexDirection:"row",alignItems:"center",marginBottom:6,gap:8},barLabel:{width:140,fontSize:9},barTrack:{flex:1,height:9,backgroundColor:"#edf1ee",borderRadius:3},barValue:{width:32,textAlign:"right",fontSize:9},
-  note:{backgroundColor:"#f4f7f5",padding:10,marginTop:12,color:muted,fontSize:8.5,lineHeight:1.4,borderRadius:5},
-  footer:{position:"absolute",bottom:24,left:38,right:38,borderTop:"1 solid #dce7e0",paddingTop:8,flexDirection:"row",justifyContent:"space-between",fontSize:8,color:muted}
+import { Document, Page, Text, View, Link, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
+import { sections,rankColor,rankLabel,type GrowAudit,type Tone } from "./model";
+const green="#114537", ink="#17312A", muted="#53665D", red="#B42318", pale="#F0F6F2";
+const S=StyleSheet.create({
+ page:{width:595.28,height:841.89,minHeight:841.89,maxHeight:841.89,paddingHorizontal:38,paddingTop:33,paddingBottom:55,fontFamily:"Helvetica",fontSize:10,color:ink,backgroundColor:"#FFFFFF"},
+ hero:{backgroundColor:green,color:"#FFFFFF",padding:25,borderRadius:12,marginBottom:17},
+ header:{flexDirection:"row",justifyContent:"space-between",alignItems:"center",borderBottom:"1 solid #D9E6DE",paddingBottom:10,marginBottom:19},
+ brand:{fontSize:11,fontWeight:"bold",letterSpacing:1.6,color:green},
+ small:{fontSize:8,color:muted,lineHeight:1.3},
+ eyebrow:{fontSize:9,fontWeight:"bold",letterSpacing:1.4,color:green,marginBottom:8},
+ title:{fontSize:25,fontWeight:"bold",lineHeight:1.12,marginBottom:9,color:green},
+ intro:{fontSize:10.5,lineHeight:1.4,color:muted,marginBottom:12},
+ metrics:{flexDirection:"row",gap:7,marginBottom:13},metric:{flex:1,padding:11,borderRadius:6,minHeight:66},
+ metricValue:{fontSize:19,fontWeight:"bold",marginBottom:4},metricLabel:{fontSize:9,fontWeight:"bold",lineHeight:1.2},
+ row:{flexDirection:"row",gap:9,paddingVertical:6,borderBottom:"0.7 solid #DFE9E2"},label:{width:"32%",fontSize:9.3,fontWeight:"bold",lineHeight:1.3},rest:{flex:1},value:{fontSize:10,lineHeight:1.3},detail:{fontSize:8.5,color:muted,lineHeight:1.3,marginTop:3},
+ grid:{alignSelf:"center",gap:4,marginBottom:10,padding:10,borderRadius:8,backgroundColor:pale},gridRow:{flexDirection:"row",gap:4},dot:{width:37,height:37,borderRadius:19,justifyContent:"center",alignItems:"center"},dotText:{fontSize:10.5,fontWeight:"bold",color:"white"},
+ barRow:{flexDirection:"row",alignItems:"center",gap:8,marginBottom:7},barLabel:{width:140,fontSize:9,lineHeight:1.2},barTrack:{flex:1,height:10,borderRadius:3,backgroundColor:"#E6EEE8"},barNumber:{width:29,textAlign:"right",fontSize:10,fontWeight:"bold"},
+ insight:{marginTop:12,padding:11,borderRadius:7,backgroundColor:"#FFF2EF",borderLeft:"3 solid #B42318"},solution:{marginTop:8,padding:11,borderRadius:7,backgroundColor:pale,borderLeft:"3 solid #114537"},
+ insightLabel:{fontSize:8.5,fontWeight:"bold",marginBottom:4,letterSpacing:0.7},insightText:{fontSize:10,lineHeight:1.4},
+ note:{fontSize:7.6,color:muted,lineHeight:1.32,marginTop:9},footer:{position:"absolute",left:38,right:38,bottom:24,borderTop:"1 solid #DFE9E2",paddingTop:8,flexDirection:"row",justifyContent:"space-between",fontSize:8,color:muted},
+ cta:{backgroundColor:green,padding:14,borderRadius:8,marginTop:12},ctaText:{fontSize:12,color:"#FFFFFF",fontWeight:"bold",lineHeight:1.4}
 });
-const colors={ok:"#16835d",improve:"#b45309",unknown:"#64748b"};
-const short=(s:string,max=200)=>s.length>max?s.slice(0,max-1)+"…":s;
-export function GrowPDF({audit}:{audit:GrowAudit}) {
-  return <Document title={"Audit de visibilité - "+audit.name} author="Grow System">
-    {sections(audit).map((s,i)=><Page size="A4" key={i} style={styles.page} wrap={false}>
-      <View style={styles.header}><Text style={styles.brand}>GROW SYSTEM</Text><Text style={styles.muted}>{audit.date} · Audit de visibilité locale</Text></View>
-      <Text style={styles.eyebrow}>{s.eyebrow}</Text>
-      <Text style={styles.title}>{i===0?short(audit.name,100):s.title}</Text>
-      {i===0&&<Text style={{fontSize:16,color:green,marginBottom:10}}>{s.title} · {short(audit.location,70)}</Text>}
-      <Text style={styles.intro}>{short(s.intro,230)}</Text>
-      {!!s.metrics?.length&&<View style={styles.metrics}>{s.metrics.map(m=><View style={styles.metric} key={m.label}><Text style={styles.metricValue}>{m.value}</Text><Text style={styles.muted}>{m.label}</Text></View>)}</View>}
-      {!!s.grid?.length&&<View style={styles.grid}>{Array.from({length:Math.sqrt(s.grid!.length)},(_,r)=><View style={styles.gridRow} key={r}>{s.grid!.slice(r*Math.sqrt(s.grid!.length),(r+1)*Math.sqrt(s.grid!.length)).map((p,j)=><View style={[styles.dot,{backgroundColor:rankColor(p)}]} key={j}><Text style={styles.dotText}>{rankLabel(p)}</Text></View>)}</View>)}</View>}
-      {!!s.bars?.length&&<View style={{marginVertical:10}}>{s.bars.map((b,j)=><View style={styles.barRow} key={j}><Text style={styles.barLabel}>{short(b.label,35)}</Text><View style={styles.barTrack}><View style={{width:(b.value/Math.max(1,...s.bars!.map(v=>v.value))*100)+"%",height:9,backgroundColor:b.own?green:"#82a997",borderRadius:3}}/></View><Text style={styles.barValue}>{b.value}</Text></View>)}</View>}
-      {s.rows?.map((r,j)=><View style={styles.row} key={j}><Text style={[styles.label,r.state?{color:colors[r.state]}:{}]}>{short(r.label,85)}</Text><View style={styles.rest}><Text style={styles.value}>{short(r.value,180)}</Text>{r.detail&&<Text style={styles.detail}>{short(r.detail,175)}</Text>}</View></View>)}
-      {s.note&&<Text style={styles.note}>{short(s.note,420)}</Text>}
-      <View style={styles.footer} fixed><Text>{short(audit.name,65)} · {audit.source}</Text><Text>{i+1} / 9</Text></View>
-    </Page>)}
-  </Document>;
+const tones:Record<Tone,{bg:string;fg:string}>={alert:{bg:"#FFF0ED",fg:red},good:{bg:"#E8F4EC",fg:green},neutral:{bg:"#F1F4F2",fg:ink}};
+const colors={ok:green,improve:red,unknown:"#64748B"};
+const clean=(s:string,n:number)=>s.length>n?s.slice(0,n-1).trim()+"…":s;
+export function GrowPDF({audit}:{audit:GrowAudit}){
+ const report=sections(audit), name=audit.name.split(" | ")[0];
+ return <Document title={"Audit de croissance locale – "+name} author="Grow System">
+ {report.map((s,i)=><Page key={i} size={{width:595.28,height:841.89}} wrap={false} style={S.page}>
+  <View style={S.header}><Text style={S.brand}>GROW SYSTEM</Text><Text style={S.small}>{audit.date} · Audit de visibilité locale</Text></View>
+  <Text style={S.eyebrow}>{s.eyebrow}</Text>
+  {i===0||s.offer?<View style={S.hero}><Text style={{fontSize:10,color:"#CADED2",marginBottom:8}}>{i===0?"AUDIT PERSONNALISÉ":"VOTRE ACCOMPAGNEMENT"}</Text><Text style={{fontSize:27,fontWeight:"bold",lineHeight:1.12,color:"#FFFFFF",marginBottom:8}}>{i===0?clean(name,115):s.title}</Text><Text style={{fontSize:12,color:"#E4F0E8",lineHeight:1.4}}>{i===0?audit.location+" · "+s.title:s.intro}</Text></View>:<Text style={S.title}>{s.title}</Text>}
+  {!s.offer&&<Text style={S.intro}>{clean(s.intro,310)}</Text>}
+  {!!s.metrics?.length&&<View style={S.metrics}>{s.metrics.map(m=>{const t=tones[m.tone||"neutral"];return <View key={m.label} style={[S.metric,{backgroundColor:t.bg}]}><Text style={[S.metricValue,{color:t.fg,fontSize:m.value.length>18?13:m.value.length>12?16:19}]}>{m.value}</Text><Text style={S.metricLabel}>{m.label}</Text>{m.detail&&<Text style={[S.small,{marginTop:3}]}>{m.detail}</Text>}</View>})}</View>}
+  {!!s.grid?.length&&Number.isInteger(Math.sqrt(s.grid.length))&&<View style={S.grid}><Text style={[S.small,{textAlign:"center",marginBottom:3}]}>NORD ↑ · {audit.spacingKm.toString().replace(".",",")} km entre points</Text>{Array.from({length:Math.sqrt(s.grid.length)},(_,j)=><View style={S.gridRow} key={j}>{s.grid!.slice(j*Math.sqrt(s.grid!.length),(j+1)*Math.sqrt(s.grid!.length)).map((p,k)=><View key={k} style={[S.dot,{backgroundColor:rankColor(p)}]}><Text style={S.dotText}>{rankLabel(p)}</Text></View>)}</View>)}<Text style={[S.small,{textAlign:"center",marginTop:3}]}>Vert : Top 3 · Orange : 4–10 · Rouge : hors résultats</Text></View>}
+  {!!s.bars?.length&&<View style={{marginBottom:8}}>{s.bars.map((b,j)=><View key={j} style={S.barRow}><Text style={[S.barLabel,{fontWeight:b.own?"bold":"normal",color:b.own?red:ink}]}>{clean(b.label,48)}</Text><View style={S.barTrack}><View style={{height:10,width:Math.max(0,b.value/Math.max(1,...s.bars!.map(v=>v.value))*100)+"%",backgroundColor:b.own?red:"#70A28B",borderRadius:3}}/></View><Text style={S.barNumber}>{b.value}</Text></View>)}</View>}
+  {s.rows?.map((r,j)=><View style={S.row} key={j}><Text style={[S.label,r.state?{color:colors[r.state]}:{}]}>{clean(r.label,85)}</Text><View style={S.rest}><Text style={[S.value,r.state?{color:colors[r.state]}:{}]}>{clean(r.value,205)}</Text>{r.detail&&<Text style={S.detail}>{clean(r.detail,215)}</Text>}</View></View>)}
+  {s.impact&&<View style={S.insight}><Text style={[S.insightLabel,{color:red}]}>{s.scenario?"À RETENIR":"IMPACT POUR VOTRE ENTREPRISE"}</Text><Text style={S.insightText}>{s.impact}</Text></View>}
+  {s.solution&&(s.offer?<View style={S.cta}>{audit.commercial?.bookingUrl?<Link src={audit.commercial.bookingUrl} style={S.ctaText}>{s.solution}</Link>:<Text style={S.ctaText}>{s.solution}</Text>}</View>:<View style={S.solution}><Text style={[S.insightLabel,{color:green}]}>COMMENT NOUS POUVONS VOUS AIDER</Text><Text style={S.insightText}>{s.solution}</Text></View>)}
+  {s.note&&<Text style={S.note}>{s.note}</Text>}
+  <View style={S.footer} fixed><Text>{clean(name,62)} · {audit.source}</Text><Text>{i+1} / {report.length}</Text></View>
+ </Page>)}
+ </Document>;
 }
 export async function generateGrowPDF(audit:GrowAudit){return renderToBuffer(<GrowPDF audit={audit}/>);}
