@@ -1,7 +1,9 @@
 import { describe,it,expect } from "vitest";
+import {mapProjection} from "../../src/lib/grow/map";
+import {premium,reviewWords} from "../../src/lib/grow/premium";
 import {generateGrowPDF} from "../../src/lib/grow/pdf";
 import type {GrowAudit,Point} from "../../src/lib/grow/model";
-const grid:Point[]=Array.from({length:25},(_,i)=>({lat:45.5,lng:-73.6,rank:i===12?2:null,state:i===12?"found":"outside",depth:10}));
+const grid:Point[]=Array.from({length:25},(_,i)=>({lat:45.5+(2-Math.floor(i/5))*.0063,lng:-73.6+(i%5-2)*.009,rank:i===12?2:null,state:i===12?"found":"outside",depth:10}));
 const a:GrowAudit={version:2,name:"Entreprise Démo | Services d’entretien",location:"Montréal, QC, Canada",date:"2026-11-21",keyword:"entretien ménager résidentiel",source:"Fixture fictive",profileFound:true,rating:5,reviewCount:3,score:88,coverage:8,checks:[{title:"Site relié",value:"Aucun lien observé",state:"improve"},{title:"Description",value:"Description présente",state:"ok"}],reviewSample:{count:3,rated:3,replied:0,stars:[3,0,0,0,0],newestObserved:"2023-11-13"},competitors:[{name:"Concurrent A",rank:1,rating:4.8,reviews:98,website:true},{name:"Concurrent B",rank:3,rating:4.9,reviews:49,website:true}],grid,spacingKm:.7,ai:[{engine:"ChatGPT",state:"absent",sources:[],competitors:[]},{engine:"Gemini",state:"absent",sources:[],competitors:[]},{engine:"Google AI Mode",state:"absent",sources:[],competitors:[]}],website:{url:null,state:"not_linked",performance:null,seo:null},priorities:[],notes:[],commercial:{monthlyPriceCad:199,monthlySearches:1000,jobValueCad:350}};
 describe("Grow PDF",()=>{
  it("renders a fourteen-page document with every page in A4 portrait",async()=>{
@@ -12,4 +14,11 @@ describe("Grow PDF",()=>{
   expect(pages.length).toBe(14);
   for(const box of pages){expect(Number(box[1])).toBeCloseTo(595.28,0);expect(Number(box[2])).toBeCloseTo(841.89,0);}
  },30000);
+ it("renders the existing-site variant and handles unmeasured data",async()=>{
+  const pdf=await generateGrowPDF({...a,website:{url:"https://example.com",state:"linked",performance:90,seo:85},grid:[],ai:[],competitors:[],reviewSample:{count:0,rated:0,replied:null,stars:[0,0,0,0,0],newestObserved:null}},{map:false});
+  expect([...pdf.toString("latin1").matchAll(/\\/MediaBox\\s*\\[/g)]).toHaveLength(14);
+ },30000);
+ it("does not reuse the incomplete legacy score as a commercial index",()=>{expect(premium(a).score).not.toBe(88);expect(premium({...a,grid:[],ai:[],competitors:[],website:{url:null,state:"unknown",performance:null,seo:null}}).score).toBeNull();});
+ it("counts recurring words across individual review texts",()=>expect(reviewWords(["Service propre propre","Service fiable"]).words).toEqual([{word:"service",count:2}]));
+ it("projects the center of a real geographic grid to the center of the map",()=>{const p=mapProjection(grid)!;const center=grid[12];const [x,y]=p.project(center.lat,center.lng);expect(x).toBeCloseTo(240);expect(y).toBeCloseTo(145);});
 });

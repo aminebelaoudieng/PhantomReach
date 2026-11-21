@@ -118,7 +118,7 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
   const reviewData=await reviewPromise;
   let rawReviews=(reviewData?.results??[]) as Review[];
   let reviewSource: "serpkite" | "google" | "none" = reviewData && Array.isArray(reviewData.results) ? "serpkite" : "none";
-  if(reviewSource==="none"&&profileFound&&p.place_id){const fallback=await fetchGoogleReviews({placeId:p.place_id,businessName:searchName,city:input.city});if("reviews" in fallback){rawReviews=fallback.reviews.map(r=>({rating:r.rating,iso_date:r.date}));reviewSource="google";}}
+  if(reviewSource==="none"&&profileFound&&p.place_id){const fallback=await fetchGoogleReviews({placeId:p.place_id,businessName:searchName,city:input.city});if("reviews" in fallback){rawReviews=fallback.reviews.map(r=>({rating:r.rating,iso_date:r.date,text:typeof r.text==="string"?r.text:undefined}));reviewSource="google";}}
   const rated=rawReviews.filter(r=>number(r.rating)!==null&&Number.isInteger(r.rating)&&r.rating!>=1&&r.rating!<=5);
   const dates=rawReviews.map(r=>r.iso_date).filter((d):d is string=>typeof d==="string"&&Number.isFinite(Date.parse(d))&&Date.parse(d)<=Date.now()).sort((a,b)=>Date.parse(b)-Date.parse(a));
   const reviewSample={count:rawReviews.length,rated:rated.length,replied:reviewSource==="serpkite"&&reviewData?.meta?.parse_quality==="ok"&&rawReviews.length?rawReviews.filter(r=>!!r.response?.snippet).length:null,stars:[5,4,3,2,1].map(n=>rated.filter(r=>r.rating===n).length),newestObserved:dates.length?formatDate(dates[0]):null,source:reviewSource,...reviewWords(rawReviews.map(r=>r.text||r.snippet||""))};
