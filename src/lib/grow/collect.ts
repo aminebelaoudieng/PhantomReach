@@ -3,11 +3,10 @@ import type { AuditInput, AuditResult, ReportScores } from "@/lib/db/types";
 import { getProviderSecret } from "@/lib/config/provider-config";
 import { fetchGoogleReviews } from "@/lib/agents/tools/reviews";
 import { lookupGoogleMaps } from "@/lib/agents/tools/google-maps";
-import { runPageSpeedAudit } from "@/lib/agents/tools/pagespeed";
+import { measureWebsiteSpeed } from "./speed";
 import { assertPublicHttpUrl } from "@/lib/security/public-http-url";
 import { generateGrowNarrative } from "./narrative";
 import { auditOnPage,type OnPageAudit } from "./onpage";
-import { websiteDetails,type WebsiteDetails } from "./website-details";
 import { commercialKeyword,citedNames } from "./sales-policy";
 import { reviewWords } from "./premium";
 import { scoreChecks, summarizeGrid, type GrowAudit, type Point, type Competitor, type Check, type AIAnswer } from "./model";
@@ -84,12 +83,7 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
   const websiteUrl=input.url||p.website||null;
   const safeWebsite=websiteUrl?await assertPublicHttpUrl(websiteUrl).then(()=>true).catch(()=>false):false;
   const htmlPromise=safeWebsite&&websiteUrl?auditOnPage(websiteUrl):Promise.resolve(undefined);
-  const speedPromise=safeWebsite&&websiteUrl?(async()=>{
-    const mobile=await runPageSpeedAudit({url:websiteUrl,strategy:"mobile"}).catch(()=>undefined);
-    const blocked=mobile&&"unavailable" in mobile&&(mobile.status==="blocked"||mobile.status==="missing_api_key");
-    const desktop=blocked?undefined:await runPageSpeedAudit({url:websiteUrl,strategy:"desktop"}).catch(()=>undefined);
-    return {mobile,desktop};
-  })():Promise.resolve(undefined);
+  const speedPromise=safeWebsite&&websiteUrl?measureWebsiteSpeed(websiteUrl):Promise.resolve(undefined);
   const onpage=await htmlPromise;
   const chosen= commercialKeyword(p.type||"",onpage?.title??null,onpage?.h1??[],resolved.state||input.state||"",input.customDirection);
   const keyword=chosen.keyword;
@@ -144,13 +138,9 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
     const mention=e?.mentions?.find(m=>normalize(m.term||"")===normalize(p.title||""));
     return {engine,citedCandidates:typeof e?.text==="string"?citedNames(e.text,p.title||searchName):[],excerpt:typeof e?.text==="string"?e.text.replace(/\s+/g," ").slice(0,550):undefined,state:e?.text&&typeof mention?.mentioned==="boolean"?(mention.mentioned?"mentioned":"absent"):"unknown",sources:[...new Set((e?.sources??[]).filter(s=>s.cited&&s.domain).map(s=>s.domain!))].slice(0,3),competitors:(e?.mentions??[]).filter(m=>m.mentioned&&competitors.some(c=>normalize(c.name)===normalize(m.term||""))).map(m=>safeName(m.term)).slice(0,3)};
   }));
-  let performance:number|null=null,seo:number|null=null,details:WebsiteDetails|undefined;
-  const speed=await speedPromise,psi=speed?.mobile,desktop=speed?.desktop;
-  if(psi&&"analysis" in psi){performance=psi.analysis.performance_score;seo=psi.analysis.seo_score;details=websiteDetails(psi.rawLighthouse);}
-  const desktopPerformance=desktop&&"analysis" in desktop?desktop.analysis.performance_score:null;
-  const desktopDetails=desktop&&"analysis" in desktop?websiteDetails(desktop.rawLighthouse):undefined;
-  const speedStatus={mobile:psi&&"unavailable" in psi?psi.reason:performance===null?"Test non disponible":undefined,desktop:desktop&&"unavailable" in desktop?desktop.reason:desktopPerformance===null?"Test non disponible":undefined};
-  const website:GrowAudit["website"]={url:websiteUrl,performance,seo,details,desktopPerformance,desktopDetails,speedStatus,onpage,state:p.website?"linked":profileFound&&detailed?"not_linked":"unknown"};
+  const speed=await speedPromise;
+  const performance=speed?.performance??null,seo=speed?.seo??null;
+  const website:GrowAudit["website"]={url:websiteUrl,performance,seo,...speed,onpage,state:p.website?"linked":profileFound&&detailed?"not_linked":"unknown"};
   const priorities:GrowAudit["priorities"]=[];
   if(website.state==="not_linked")priorities.push({title:"Relier un site à votre fiche",detail:"Présenter vos prestations et proposer une demande de soumission simple."});
   if(number(p.rating_count)!==null&&competitors.some(c=>c.reviews!==null&&c.reviews>p.rating_count!))priorities.push({title:"Développer votre réputation",detail:"Inviter tous vos clients à partager un avis honnête après une prestation, sans sélectionner seulement les clients satisfaits."});

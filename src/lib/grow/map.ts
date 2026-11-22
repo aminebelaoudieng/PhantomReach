@@ -16,16 +16,18 @@ export async function loadMap(grid:Point[]):Promise<MapData|undefined>{
  // Read only a small geographic extract, cached by Next. No paid map API or SerpKite call.
  const box=[p.south,p.west,p.north,p.east].map(v=>v.toFixed(5)).join(",");
  const query='[out:json][timeout:15];(way["highway"~"^(primary|secondary|tertiary|residential|unclassified|trunk|motorway)$"]('+box+');node["place"~"^(suburb|neighbourhood|quarter|town|city)$"]('+box+'););out geom('+box+');';
- for(const endpoint of ["https://overpass.private.coffee/api/interpreter","https://overpass-api.de/api/interpreter"]){try{
+ const endpoints=p.west>=-170&&p.east<=-50&&p.south>=15&&p.north<=84?["https://ovp.dresel.systems/api-na/interpreter","https://overpass.private.coffee/api/interpreter","https://overpass-api.de/api/interpreter"]:["https://overpass.private.coffee/api/interpreter","https://overpass-api.de/api/interpreter"];
+ for(const endpoint of endpoints){try{
   const res=await fetch(endpoint+"?data="+encodeURIComponent(query),{headers:{"User-Agent":"GrowSystemAudit/1.0 (local visibility report)"},signal:AbortSignal.timeout(18000),next:{revalidate:604800}});
   if(!res.ok){console.warn("[grow/map] HTTP",res.status);continue;}
   const raw=await res.json() as {elements?:{type:string;lat?:number;lon?:number;tags?:{name?:string;highway?:string};geometry?:{lat:number;lon:number}[]}[]};
   const roads:Road[]=[],labels:MapData["labels"]=[];
   for(const e of (raw.elements||[]).slice(0,1600)){
-   if(e.type==="way"&&e.geometry?.length){const pts=e.geometry.filter(v=>Number.isFinite(v.lat)&&Number.isFinite(v.lon)).map(v=>p.project(v.lat,v.lon));if(pts.length>1)roads.push({points:pts,major:!["residential","unclassified"].includes(e.tags?.highway||"")});}
+   if(e.type==="way"&&e.geometry?.length){const pts=e.geometry.filter(v=>Number.isFinite(v.lat)&&Number.isFinite(v.lon)).map(v=>p.project(v.lat,v.lon));if(pts.length>1){const major=!["residential","unclassified"].includes(e.tags?.highway||"");roads.push({points:pts,major});if(major&&e.tags?.name&&labels.length<4&&pts.length>3&&!labels.some(l=>l.name===e.tags?.name)){const [x,y]=pts[Math.floor(pts.length/2)];if(x>30&&x<400&&y>20&&y<265)labels.push({x,y,name:e.tags.name.slice(0,28)});}}}
    if(e.type==="node"&&e.tags?.name&&typeof e.lat==="number"&&typeof e.lon==="number"&&labels.length<6){const [x,y]=p.project(e.lat,e.lon);if(x>25&&x<430&&y>15&&y<270)labels.push({x,y,name:e.tags.name.slice(0,25)});}
   }
   if(!roads.length){console.warn("[grow/map] road geometry unavailable");continue;}
+  console.info("[grow/map] geometry loaded",roads.length);
   return {roads,labels,pins:grid.map(v=>{const [x,y]=p.project(v.lat,v.lng);return{x,y};})};
  }catch(e){console.warn("[grow/map]",e instanceof Error?e.name:"failed");continue;}}
  return undefined;
