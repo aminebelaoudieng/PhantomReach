@@ -7,5 +7,5 @@ export default async function LoginPage({searchParams}:{searchParams:Promise<{er
  if(!hostedAuth())redirect("/audits");
  let configured=false,unavailable=false;
  try{configured=!!(await readBinding());}catch{unavailable=true;}
- return <LoginForm error={!!(await searchParams).error} needsSetup={!configured&&!unavailable} unavailable={unavailable}/>;
+ return <LoginForm error={(await searchParams).error} needsSetup={!configured&&!unavailable} unavailable={unavailable}/>;
 }

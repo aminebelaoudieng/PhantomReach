@@ -1,9 +1,7 @@
 "use client";
 
 import {useState} from "react";
-import {useFormStatus} from "react-dom";
 import {ArrowRight, ArrowUpRight, BarChart3, CheckCircle2, Eye, EyeOff, FileText, Globe2, LockKeyhole, Mail, MapPin, ShieldCheck, Sparkles, Star, Loader2} from "lucide-react";
-import {login} from "@/app/auth/actions";
 import styles from "./login.module.css";
 
 function Brand({light=false}:{light?:boolean}){
@@ -43,13 +41,14 @@ function ProductPreview(){
  </div>;
 }
 
-function Submit(){
- const {pending}=useFormStatus();
+function Submit({pending}:{pending:boolean}){
  return <button type="submit" disabled={pending} className={styles.submit}>{pending?<><Loader2 className={styles.spin} size={19}/> Connexion en cours…</>:<>Se connecter<ArrowRight size={19}/></>}</button>;
 }
 
-export function LoginForm({error=false,needsSetup=false,unavailable=false}:{error?:boolean;needsSetup?:boolean;unavailable?:boolean}){
+export function LoginForm({error,needsSetup=false,unavailable=false}:{error?:string;needsSetup?:boolean;unavailable?:boolean}){
  const [visible,setVisible]=useState(false);
+ const [pending,setPending]=useState(false);
+ const messages:Record<string,string>={credentials:"Adresse e-mail ou mot de passe incorrect.",confirmation:"Votre adresse e-mail doit être confirmée.",rate:"Trop de tentatives. Réessayez dans quelques instants.",setup:"Votre espace n’est pas encore rattaché à un compte.",authorization:"Ce compte n’est pas autorisé à accéder à cet espace.",service:"Le service de connexion est momentanément indisponible. Réessayez.",request:"La requête de connexion a été refusée. Actualisez cette page."};
  return <main lang="fr" className={styles.shell}>
   <aside className={styles.story}>
    <div className={styles.storyPattern} aria-hidden="true"/>
@@ -70,11 +69,11 @@ export function LoginForm({error=false,needsSetup=false,unavailable=false}:{erro
     <p className={styles.kicker}>VOTRE ESPACE DE TRAVAIL</p>
     <h1>Bon retour.</h1>
     <p className={styles.intro}>Connectez-vous à votre espace pour accéder à vos audits, vos rapports et vos outils de croissance.</p>
-    {error&&<p role="alert" className={styles.error}>Connexion impossible. Vérifiez vos identifiants et que votre compte est confirmé et autorisé.</p>}
-    <form className={styles.form} action={login}>
+    {error&&<p role="alert" className={styles.error}>{messages[error]||"Connexion impossible. Réessayez."}</p>}
+    <form className={styles.form} method="post" action="/auth/login" onSubmit={()=>setPending(true)}>
      <div className={styles.field}><label htmlFor="login-email">Adresse e-mail</label><div className={styles.inputWrap}><Mail size={18} aria-hidden="true"/><input id="login-email" type="email" name="email" autoComplete="username" required maxLength={254} placeholder="vous@entreprise.ca"/></div></div>
      <div className={styles.field}><label htmlFor="login-password">Mot de passe</label><div className={styles.inputWrap}><LockKeyhole size={18} aria-hidden="true"/><input id="login-password" type={visible?"text":"password"} name="password" autoComplete="current-password" required maxLength={256} placeholder="Votre mot de passe"/><button type="button" className={styles.passwordToggle} onClick={()=>setVisible(v=>!v)} aria-label={visible?"Masquer le mot de passe":"Afficher le mot de passe"} aria-pressed={visible}>{visible?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></div>
-     <Submit/>
+     <Submit pending={pending}/>
     </form>
     {needsSetup&&<p className={styles.setup} role="status">Première configuration : le compte doit être créé et rattaché à cet espace par l’administrateur Supabase. Aucune inscription publique.</p>}
     {unavailable&&<p className={styles.error} role="alert">Le service de connexion est temporairement indisponible.</p>}

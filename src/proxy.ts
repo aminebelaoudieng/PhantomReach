@@ -20,7 +20,7 @@ export async function proxy(request:NextRequest){
   return privateResponse(next);
  }
  try{
-  if(path==="/login"||path==="/auth/callback")return response;
+  if(path==="/login"||path==="/auth/callback"||(path==="/auth/login"&&request.method==="POST"))return response;
   const binding=await readBinding();
   if(path==="/auth/setup")return finish(NextResponse.redirect(new URL("/login",request.url)));
   if(!binding){
