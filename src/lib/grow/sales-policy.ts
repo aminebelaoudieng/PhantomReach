@@ -30,11 +30,11 @@ export function citedNames(text:string,own:string):string[]{
 }
 export function actionSignal(a:GrowAudit,category:string,top:number|null,response:number|null,reviewRatio:number|null):Signal{
  switch(category){
- case "SITE WEB":return a.website.state==="not_linked"||a.website.performance!==null&&a.website.performance<50?"red":"amber";
+ case "SITE WEB":return a.website.state==="not_linked"||(a.website.performance!==null&&a.website.performance<50||a.website.desktopPerformance!=null&&a.website.desktopPerformance<50)?"red":"amber";
  case "AVIS":return response===0?"red":reviewRatio!==null&&reviewRatio<50?"amber":"amber";
  case "GOOGLE MAPS":return level(top,25,65);
  case "FICHE GOOGLE":return a.checks.some(c=>c.state==="improve")?"amber":"neutral";
- case "VISIBILITÉ IA":return a.ai.some(x=>x.state!=="unknown")&&a.ai.every(x=>x.state!=="mentioned")?"red":"amber";
+ case "VISIBILITÉ IA":return a.ai.some(x=>x.state!=="unknown")&&a.ai.every(x=>x.state!=="mentioned")?"amber":"neutral";
  default:return "neutral";
  }
 }
@@ -44,7 +44,7 @@ export function deliverable(category:string,a:GrowAudit){
  case "GOOGLE MAPS":return "Optimisation de la fiche, pages locales et suivi des positions sur la même grille.";
  case "FICHE GOOGLE":return "Vérification des champs, catégories, services et contenu avec votre accord.";
  case "SITE WEB":return a.website.url?"Optimisation du site existant, des formulaires et du suivi CRM.":"Vérification du site éventuel, puis création ou raccordement et formulaire CRM.";
- case "VISIBILITÉ IA":return "Services et zones clairement décrits, profils cohérents et suivi des mentions.";
+ case "VISIBILITÉ IA":return "Site optimisé SEO/GEO, services et zones clairement décrits, suivi des mentions.";
  default:return "CRM, mesure des demandes et suivi des conversions avec rapport mensuel.";
  }
 }

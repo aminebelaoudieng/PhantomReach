@@ -4,6 +4,6 @@ const audit:GrowAudit={version:2,name:"Test",location:"Montréal",date:"2026-11-
 describe("commercial report",()=>{
  it("uses a clearly hypothetical scenario when no search volume exists",()=>{const o=opportunity(audit);expect(o.actualBase).toBe(false);expect(o.base).toBe(100);expect(o.additional).toBe(3);expect(o.revenue).toBeNull();});
  it("uses entered volume and contract value",()=>{const o=opportunity({...audit,commercial:{monthlySearches:1000,jobValueCad:500}});expect(o.additional).toBe(30);expect(o.revenue).toBe(3750);});
- it("never invents a price",()=>expect(offerPrice(audit)).toBeNull());
+ it("uses the approved fixed price for all audits",()=>{expect(offerPrice(audit)).toBe(199);expect(offerPrice({...audit,commercial:{monthlyPriceCad:999}})).toBe(199);expect(JSON.stringify(sections(audit))).not.toContain("Google Ads");});
  it("contains nine pages, flags missing website and omits legacy completeness score",()=>{const s=sections(audit);expect(s).toHaveLength(9);expect(s[4].metrics?.[0].tone).toBe("alert");expect(JSON.stringify(s)).not.toContain("88/100");});
 });

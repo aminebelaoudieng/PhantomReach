@@ -11,6 +11,7 @@ import { unavailable, type UnavailableResult } from "./unavailable";
 
 interface PageSpeedParams {
   url: string;
+  strategy?: "mobile" | "desktop";
 }
 
 function scoreToGrade(score: number): string {
@@ -24,9 +25,12 @@ function scoreToGrade(score: number): string {
 export async function runPageSpeedAudit(
   params: PageSpeedParams
 ): Promise<{ analysis: WebsitePerformanceResult; rawLighthouse?: any } | UnavailableResult> {
+  const strategy=params.strategy??"mobile";
   const apiKey = await getProviderSecret("google_pagespeed_api_key");
+  console.info("[grow/pagespeed] starting",strategy);
 
   if (!apiKey) {
+    console.warn("[grow/pagespeed] missing configured key");
     return unavailable(
       "pagespeed",
       "missing_api_key",
@@ -37,23 +41,24 @@ export async function runPageSpeedAudit(
   try {
     const url = new URL("https://www.googleapis.com/pagespeedonline/v5/runPagespeed");
     url.searchParams.set("url", params.url);
-    url.searchParams.set("strategy", "mobile");
+    url.searchParams.set("strategy", strategy);
     url.searchParams.set("key", apiKey);
     for (const category of ["performance", "accessibility", "seo", "best-practices"]) {
       url.searchParams.append("category", category);
     }
 
     const response = await fetch(url.toString(), {
-      signal: AbortSignal.timeout(65000),
+      signal: AbortSignal.timeout(75000),
       cache:"no-store",
     });
 
-    if(!response.ok){const reason=await pageSpeedError(response);console.warn("[grow/pagespeed]",reason);return unavailable("pagespeed",response.status===429||response.status===403?"blocked":"failed",reason); }
+    if(!response.ok){const reason=await pageSpeedError(response);console.warn("[grow/pagespeed]",strategy,reason);return unavailable("pagespeed",response.status===429||response.status===403?"blocked":"failed",reason); }
 
     const data = await response.json();
     const lighthouseResult = data.lighthouseResult;
     if (!lighthouseResult || lighthouseResult.runtimeError) {
-      throw new Error("No Lighthouse result in PageSpeed response");
+      console.warn("[grow/pagespeed]",strategy,"no usable result",lighthouseResult?.runtimeError?.code??"missing");
+      return unavailable("pagespeed","failed","Le test n’a pas produit de résultat exploitable.");
     }
 
     const categories = lighthouseResult.categories || {};
@@ -154,9 +159,10 @@ export async function runPageSpeedAudit(
       audits: Object.fromEntries(Object.entries(audits).filter(([id,v])=>v&&(auditIds as readonly string[]).includes(id))),
     };
 
+    console.info("[grow/pagespeed] success",strategy,performanceScore);
     return { analysis, rawLighthouse };
   } catch (error: unknown) {
-    const reason=pageSpeedTimeout(error)?"PageSpeed : délai Google de 65 secondes dépassé.":"PageSpeed : analyse indisponible ou réponse incomplète.";
+    const reason=pageSpeedTimeout(error)?"PageSpeed : délai Google de 75 secondes dépassé.":"PageSpeed : analyse indisponible ou réponse incomplète.";
     console.warn("[grow/pagespeed]",reason);
     return unavailable("pagespeed","failed",reason);
   }
