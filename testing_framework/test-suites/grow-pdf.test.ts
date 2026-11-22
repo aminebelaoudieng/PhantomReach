@@ -1,5 +1,6 @@
 import { describe,it,expect } from "vitest";
 import {mapProjection} from "../../src/lib/grow/map";
+import {commercialKeyword,citedNames,level} from '../../src/lib/grow/sales-policy';
 import {premium,reviewWords} from "../../src/lib/grow/premium";
 import {parsePage,pageChecks} from "../../src/lib/grow/onpage";
 import {websiteDetails} from "../../src/lib/grow/website-details";
@@ -35,5 +36,7 @@ describe("Grow PDF",()=>{
  },30000);
  it("does not reuse the incomplete legacy score as a commercial index",()=>{expect(premium(a).score).not.toBe(88);expect(premium({...a,grid:[],ai:[],competitors:[],website:{url:null,state:"unknown",performance:null,seo:null}}).score).toBeNull();});
  it("counts recurring words across individual review texts",()=>expect(reviewWords(["Service propre propre","Service fiable"]).words).toEqual([{word:"service",count:2}]));
+ it("preserves unknown signals and chooses a service from actual site evidence",()=>{expect(level(null,25,65)).toBe("neutral");expect(level(0,25,65)).toBe("red");expect(level(44,25,65)).toBe("amber");expect(level(80,25,65)).toBe("good");expect(commercialKeyword("Entreprise de construction","Aqua Service Inc – Professional Drain, Waterproofing & Renovation",[],"ON").keyword).toBe("basement waterproofing");expect(commercialKeyword("Entreprise de construction","Drain Waterproofing",[],"ON","drain repair").keyword).toBe("drain repair");});
+ it("extracts explicitly labelled AI names without extra API calls",()=>{expect(citedNames("Construction commerciale * Orlando Corporation : Basée à Mississauga","Aqua Service Inc")).toContain("Orlando Corporation");});
  it("projects the center of a real geographic grid to the center of the map",()=>{const p=mapProjection(grid)!;const center=grid[12];const [x,y]=p.project(center.lat,center.lng);expect(x).toBeCloseTo(240);expect(y).toBeCloseTo(145);});
 });

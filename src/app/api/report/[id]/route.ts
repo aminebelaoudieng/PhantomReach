@@ -34,6 +34,7 @@ const commercialSchema=z.object({
  monthlySearches:z.number().int().positive().max(10000000).nullable(),
  jobValueCad:z.number().positive().max(1000000).nullable(),
  monthlyPriceCad:z.number().positive().max(1000000).nullable(),
+ bookingUrl:z.string().url().max(400).refine(s=>s.startsWith("https://")).nullable().optional(),
 });
 export async function PATCH(request:NextRequest,{params}:{params:Promise<{id:string}>}){
  const {id}=await params;
@@ -44,7 +45,7 @@ export async function PATCH(request:NextRequest,{params}:{params:Promise<{id:str
  if(report.status!=="completed"||report.type!=="audit"||!result?.grow?.profileFound)return NextResponse.json({error:"Rapport indisponible."},{status:409});
  const data=commercialSchema.safeParse(await request.json().catch(()=>null));
  if(!data.success)return NextResponse.json({error:"Vérifiez les valeurs saisies."},{status:400});
- const commercial={...result.grow.commercial,monthlySearches:data.data.monthlySearches??undefined,jobValueCad:data.data.jobValueCad??undefined,monthlyPriceCad:data.data.monthlyPriceCad??undefined};
+ const commercial={...result.grow.commercial,monthlySearches:data.data.monthlySearches??undefined,jobValueCad:data.data.jobValueCad??undefined,monthlyPriceCad:data.data.monthlyPriceCad??undefined,...(data.data.bookingUrl!==undefined?{bookingUrl:data.data.bookingUrl??undefined}:{})};
  const grow={...result.grow,commercial};
  await db.updateReport(id,{result:{...result,grow}});
  return NextResponse.json({grow});

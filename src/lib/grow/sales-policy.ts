@@ -7,7 +7,7 @@ export function commercialKeyword(category:string,title:string|null,h1:string[],
  if(custom?.trim())return {keyword:custom.trim().slice(0,100),source:"Mot-clé choisi"}; 
  const english=!/^(qc|qu[eé]bec)$/i.test(state.trim())&&/\b(waterproofing|drain|cleaning|plumbing|roofing|electrical|heating|renovation|construction services)\b/i.test([title,...h1].join(" "));
  const evidence=[title,...h1].join(" ");
- const generic=/construction|contractor|entrepreneur|services|service|company|entreprise/i.test(category);
+ const generic=/^(entreprise de construction|construction company|general contractor|entrepreneur général|contractor|entreprise|company|services? (?:de construction|professionnels?)|construction services|services de nettoyage|cleaning service)$/i.test(category.trim());
  const patterns:[RegExp,string,string][]=[
  [/\b(?:basement\s+)?waterproofing\b|imperm[ée]abilisation/i,"basement waterproofing","imperméabilisation de fondation"],
  [/\bdrain(?:age| repair| services)?\b|drainage/i,"drain repair","service de drainage"],
