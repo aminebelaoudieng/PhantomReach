@@ -8,6 +8,7 @@ import { assertPublicHttpUrl } from "@/lib/security/public-http-url";
 import { generateGrowNarrative } from "./narrative";
 import { auditOnPage,type OnPageAudit } from "./onpage";
 import { websiteDetails,type WebsiteDetails } from "./website-details";
+import { commercialKeyword,citedNames } from "./sales-policy";
 import { reviewWords } from "./premium";
 import { scoreChecks, summarizeGrid, type GrowAudit, type Point, type Competitor, type Check, type AIAnswer } from "./model";
 
@@ -80,7 +81,14 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
   const resolved=cleanLocation(p.address);
   location=[resolved.city||input.city,resolved.state||input.state,countryLabel].filter(Boolean).join(", ");
   console.info("[grow] Profile matched",source,"coordinates",number(p.latitude)!==null&&number(p.longitude)!==null);
-  const keyword=(input.customDirection?.trim()||p.type||"").slice(0,100);
+  const websiteUrl=input.url||p.website||null;
+  const safeWebsite=websiteUrl?await assertPublicHttpUrl(websiteUrl).then(()=>true).catch(()=>false):false;
+  const htmlPromise=safeWebsite&&websiteUrl?auditOnPage(websiteUrl):Promise.resolve(undefined);
+  const psiPromise=safeWebsite&&websiteUrl?runPageSpeedAudit({url:websiteUrl}).catch(()=>undefined):Promise.resolve(undefined);
+  const onpage=await htmlPromise;
+  const chosen= commercialKeyword(p.type||"",onpage?.title??null,onpage?.h1??[],resolved.state||input.state||"",input.customDirection);
+  const keyword=chosen.keyword;
+  const language=/^(QC|Québec|Quebec)$/i.test(resolved.state||input.state||"")?"fr":"en";
   const fields: {title:string;value?:string;action:string}[]=[
     {title:"Nom commercial",value:p.title,action:"Vérifier le nom commercial exact."},
     {title:"Adresse ou secteur",value:p.address,action:"Préciser votre zone de service si applicable."},
@@ -109,7 +117,7 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
     const order=[Math.floor(coords.length/2),...coords.map((_,i)=>i).filter(i=>i!==Math.floor(coords.length/2))];
     const results:Point[]=coords.map(c=>({...c,rank:null,state:"unknown",depth:0}));
     for(let i=0;i<order.length;i+=3)await Promise.all(order.slice(i,i+3).map(async index=>{
-      const c=coords[index], e=await call("maps",{q:keyword,ll:"@"+c.lat.toFixed(6)+","+c.lng.toFixed(6)+",15z"});
+      const c=coords[index], e=await call("maps",{language,q:keyword,ll:"@"+c.lat.toFixed(6)+","+c.lng.toFixed(6)+",15z"});
       const list=(e?.results??[]) as Place[];
       const found=list.find(v=>same(v,p)), rank=number(found?.position);
       const complete=e?.meta?.parse_quality==="ok"&&list.length>0;
@@ -127,13 +135,13 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
   const reviewSample={count:rawReviews.length,rated:rated.length,replied:reviewSource==="serpkite"&&reviewData?.meta?.parse_quality==="ok"&&rawReviews.length?rawReviews.filter(r=>!!r.response?.snippet).length:null,stars:[5,4,3,2,1].map(n=>rated.filter(r=>r.rating===n).length),newestObserved:dates.length?formatDate(dates[0]):null,source:reviewSource,...reviewWords(rawReviews.map(r=>r.text||r.snippet||""))};
   const engines=[["chatgpt","ChatGPT",5],["gemini","Gemini",5],["ai_mode","Google AI Mode",3]] as const;
   const ai:AIAnswer[]=await Promise.all(engines.map(async ([endpoint,engine,cost]):Promise<AIAnswer>=>{
-    const e=profileFound&&keyword&&location&&process.env.GROW_AI_VISIBILITY!=="off"?await call(endpoint,{prompt:"Quels prestataires de "+keyword+" recommandez-vous à "+location+" ? Donnez des entreprises locales réelles.",track:[p.title!,...competitors.map(c=>c.name)]},cost):null;
+    const e=profileFound&&keyword&&location&&process.env.GROW_AI_VISIBILITY!=="off"?await call(endpoint,{...(endpoint==="chatgpt"?{}:{language}),prompt:language==="fr"?"Quels prestataires de "+keyword+" recommandez-vous à "+location+" ? Donnez des entreprises locales réelles.":"Which local "+keyword+" providers do you recommend in "+location+"? List real local businesses.",track:[p.title!,...competitors.map(c=>c.name)]},cost):null;
     const mention=e?.mentions?.find(m=>normalize(m.term||"")===normalize(p.title||""));
-    return {engine,excerpt:typeof e?.text==="string"?e.text.replace(/\s+/g," ").slice(0,550):undefined,state:e?.text&&typeof mention?.mentioned==="boolean"?(mention.mentioned?"mentioned":"absent"):"unknown",sources:[...new Set((e?.sources??[]).filter(s=>s.cited&&s.domain).map(s=>s.domain!))].slice(0,3),competitors:(e?.mentions??[]).filter(m=>m.mentioned&&competitors.some(c=>normalize(c.name)===normalize(m.term||""))).map(m=>safeName(m.term)).slice(0,3)};
+    return {engine,citedCandidates:typeof e?.text==="string"?citedNames(e.text,p.title||searchName):[],excerpt:typeof e?.text==="string"?e.text.replace(/\s+/g," ").slice(0,550):undefined,state:e?.text&&typeof mention?.mentioned==="boolean"?(mention.mentioned?"mentioned":"absent"):"unknown",sources:[...new Set((e?.sources??[]).filter(s=>s.cited&&s.domain).map(s=>s.domain!))].slice(0,3),competitors:(e?.mentions??[]).filter(m=>m.mentioned&&competitors.some(c=>normalize(c.name)===normalize(m.term||""))).map(m=>safeName(m.term)).slice(0,3)};
   }));
-  const websiteUrl=input.url||p.website||null;
-  let performance:number|null=null,seo:number|null=null,details:WebsiteDetails|undefined,onpage:OnPageAudit|undefined;
-  if(websiteUrl)try{await assertPublicHttpUrl(websiteUrl);const [psi,html]=await Promise.all([runPageSpeedAudit({url:websiteUrl}),auditOnPage(websiteUrl)]);onpage=html;if("analysis" in psi){performance=psi.analysis.performance_score;seo=psi.analysis.seo_score;details=websiteDetails(psi.rawLighthouse);}}catch{}
+  let performance:number|null=null,seo:number|null=null,details:WebsiteDetails|undefined;
+  const psi=await psiPromise;
+  if(psi&&"analysis" in psi){performance=psi.analysis.performance_score;seo=psi.analysis.seo_score;details=websiteDetails(psi.rawLighthouse);}
   const website:GrowAudit["website"]={url:websiteUrl,performance,seo,details,onpage,state:p.website?"linked":profileFound&&detailed?"not_linked":"unknown"};
   const priorities:GrowAudit["priorities"]=[];
   if(website.state==="not_linked")priorities.push({title:"Relier un site à votre fiche",detail:"Présenter vos prestations et proposer une demande de soumission simple."});
@@ -151,7 +159,7 @@ export async function runGrowAudit(input:AuditInput):Promise<{result:AuditResult
   const configuredPrice=Number(process.env.GROW_OFFER_MONTHLY_CAD);
   const bookingUrl=process.env.GROW_BOOKING_URL?.trim();
   const commercial={monthlySearches:input.monthlySearches,jobValueCad:input.jobValueCad,monthlyPriceCad:input.monthlyPriceCad||(Number.isFinite(configuredPrice)&&configuredPrice>0?configuredPrice:undefined),bookingUrl:bookingUrl&&/^https:\/\//i.test(bookingUrl)?bookingUrl:undefined};
-  const grow:GrowAudit={version:2,commercial,name:p.title||searchName,location,date:new Date().toISOString().slice(0,10),keyword,source,profileFound,rating:number(p.rating),reviewCount:number(p.rating_count),checks,score,coverage,reviewSample,competitors,grid,spacingKm,ai,website,notes,priorities:priorities.slice(0,3)};
+  const grow:GrowAudit={version:2,commercial,name:p.title||searchName,location,date:new Date().toISOString().slice(0,10),keyword,keywordSource:chosen.source,source,profileFound,rating:number(p.rating),reviewCount:number(p.rating_count),checks,score,coverage,reviewSample,competitors,grid,spacingKm,ai,website,notes,priorities:priorities.slice(0,3)};
   const commentary=await generateGrowNarrative(grow);
   grow.narrative=commentary.narrative;
   grow.narrativeUsage=commentary.usage;

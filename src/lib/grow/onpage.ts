@@ -2,7 +2,7 @@ import {loadBuffer} from "cheerio";
 import type {CheckState} from "./model";
 import {getPublicPage} from "./public-page";
 export type OnPageCheck={label:string;state:CheckState;detail:string};
-export type OnPageAudit={state:"measured"|"unavailable";pages:number;title:string|null;description:string|null;h1:string[];h2Count?:number;h3Count?:number;images:number;missingAlt:number;internalLinks:number;externalLinks:number;formCount:number;contactLinkCount:number;ctaCount:number;schemaTypes:string[];checks:OnPageCheck[]};
+export type OnPageAudit={state:"measured"|"unavailable";pages:number;title:string|null;description:string|null;titleLength?:number;descriptionLength?:number;h1:string[];h2Count?:number;h3Count?:number;images:number;missingAlt:number;internalLinks:number;externalLinks:number;formCount:number;contactLinkCount:number;ctaCount:number;schemaTypes:string[];checks:OnPageCheck[]};
 type Parsed=Omit<OnPageAudit,"state"|"pages"|"checks">&{links:string[];canonical:string|null;noindex:boolean;og:boolean;contentLength:number};
 const normalize=(s:string)=>s.replace(/\s+/g," ").trim();
 const short=(s:string,n=160)=>normalize(s).slice(0,n);
@@ -11,8 +11,8 @@ export function parsePage(html:Buffer,url:string,contentType=""):Parsed{
  const charset=contentType.match(/charset\s*=\s*["\']?([\w-]+)/i)?.[1];
  const $=loadBuffer(html,{encoding:{defaultEncoding:"utf-8",...(charset?{transportLayerEncodingLabel:charset}:{})}});
  const meta=(name:string)=>normalize($("meta").filter((_,el)=>($(el).attr("name")||"").toLowerCase()===name).first().attr("content")||"");
- const title=short($("title").first().text(),180)||null;
- const description=short(meta("description"),240)||null;
+ const titleRaw=normalize($("title").first().text());const title=short(titleRaw,180)||null;
+ const descriptionRaw=meta("description");const description=short(descriptionRaw,240)||null;
  const headings=$("h1").map((_,el)=>short($(el).text(),110)).get().filter(Boolean).slice(0,12);
  const images=$("img");const missingAlt=images.filter((_,el)=>$(el).attr("alt")===undefined).length;
  const origin=new URL(url).origin;const internal:string[]=[],external:string[]=[];
@@ -32,15 +32,15 @@ export function parsePage(html:Buffer,url:string,contentType=""):Parsed{
  const noindex=/\bnoindex\b/i.test(meta("robots")+" "+meta("googlebot"));
  const formCount=$("form").length;
  $("script,style,template,noscript,svg,head").remove();
- return {title,description,h1:headings,h2Count:$("h2").length,h3Count:$("h3").length,images:images.length,missingAlt,internalLinks:unique(internal).length,externalLinks:unique(external).length,formCount,contactLinkCount:contacts,ctaCount:ctas,schemaTypes:unique(types).slice(0,12),links:unique(internal),canonical:canonical?short(canonical,180):null,noindex,og,contentLength:normalize($("body").text()).length};
+ return {title,description,titleLength:titleRaw.length,descriptionLength:descriptionRaw.length,h1:headings,h2Count:$("h2").length,h3Count:$("h3").length,images:images.length,missingAlt,internalLinks:unique(internal).length,externalLinks:unique(external).length,formCount,contactLinkCount:contacts,ctaCount:ctas,schemaTypes:unique(types).slice(0,12),links:unique(internal),canonical:canonical?short(canonical,180):null,noindex,og,contentLength:normalize($("body").text()).length};
 }
 export function pageChecks(p:Parsed):OnPageCheck[]{
  const c=(label:string,state:CheckState,detail:string):OnPageCheck=>({label,state,detail});
  const evidence=p.contentLength>=100;
  const conversion=p.formCount+p.contactLinkCount+p.ctaCount;
  return [
-  c("Titre SEO",p.title?"ok":"improve",p.title||"Aucun titre HTML détecté."),
-  c("Méta-description",p.description?"ok":"improve",p.description||"Aucune méta-description détectée."),
+  c("Titre SEO",p.title&&(p.titleLength??p.title.length)<=65?"ok":"improve",p.title?(p.titleLength??p.title.length)+" caractères. "+p.title:"Aucun titre HTML détecté."),
+  c("Méta-description",p.description&&(p.descriptionLength??p.description.length)<=170?"ok":"improve",p.description?(p.descriptionLength??p.description.length)+" caractères. "+p.description:"Aucune méta-description détectée."),
   c("Structure des titres",p.h1.length?"ok":evidence?"improve":"unknown",p.h1.length?p.h1.length+" H1 · "+(p.h2Count??0)+" H2 · "+(p.h3Count??0)+" H3. "+p.h1[0]:"Aucun H1 visible dans le HTML initial."),
   c("Textes alternatifs",p.images?p.missingAlt?"improve":"ok":"unknown",p.images?p.missingAlt+" / "+p.images+" images sans attribut alt.":"Aucune image HTML détectée."),
   c("Indexation",p.noindex?"improve":"ok",p.noindex?"Directive noindex détectée.":"Aucun noindex dans les balises meta (indexation réelle non vérifiée)."),
